@@ -1,0 +1,83 @@
+// These files define the structure of your GraphQL API, such as the queries, mutations, and the types of data you can query.
+// user-type-defs.js: Defines the user schema for GraphQL, detailing fields for the user entity and user-related queries or mutations.
+import { gql } from 'apollo-server-express';
+
+const userTypeDefs = gql`
+    scalar Upload    
+
+    type User {
+        id: ID!
+        name: String!
+        email: String!
+        password: String!
+        phone: String!
+        city: String!
+        country: String!
+        state: String!
+    }
+    
+    type UploadResult {
+        success: Boolean!
+        message: String!
+        fileUrl: String
+    }
+
+
+    input UpdateUserInput {
+        name: String
+        email: String
+        phone: String
+        city: String
+        state: String
+        country: String
+    }
+
+
+    type OTPResponse {
+        success: Boolean!
+        message: String!
+    }
+
+    type AuthPayload {
+        token: String!
+        user: User!
+    }
+
+    type LoginResponse {
+        token: String!
+        user: User
+    }
+
+    type ChangePasswordResponse {
+        success: Boolean!
+        message: String!
+    }
+
+    type UploadImageResponse {
+        success: Boolean!
+        message: String
+        fileUrl: String
+    }
+
+    type Query {
+        getAllUsers: [User!]!
+        login(email: String!, password: String!): LoginResponse!  # Updated return type
+    }
+
+    type Mutation {
+        register(name: String!, email: String!, password: String!, phone: String, city: String, country: String, state: String): User!
+        
+        login(email: String!, password: String!): LoginResponse!  
+
+        sendOTP(phone: String!): OTPResponse!
+
+        verifyOTP(phone: String!, otp: String!): OTPResponse!     
+        
+        updateUser(id: ID!, input: UpdateUserInput!): User!
+
+        changePassword(userId: ID!, currentPassword: String!, newPassword: String!): ChangePasswordResponse!
+
+        uploadImage(file: Upload!, userId: ID!): UploadResult!    }
+`;
+
+export default userTypeDefs; 

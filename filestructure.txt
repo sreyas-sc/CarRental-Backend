@@ -1,0 +1,7 @@
+--> Resolvers handle your application's business logic for fetching and modifying data.
+--> TypeDefs define the structure and types of data for your GraphQL API.
+--> Models represent the database tables, and Sequelize manages the communication between the app and the database.
+--> Repos abstract complex database queries into manageable, reusable functions.
+--> Utils provide reusable functions such as token generation.
+--> Config files handle database configuration and environment variables.
+--> Entry Point (index.js) initializes the server and sets up GraphQL endpoints.
