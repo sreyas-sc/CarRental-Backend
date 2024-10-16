@@ -48,7 +48,7 @@ const RentableVehicle = sequelize.define('RentableVehicle', {
         allowNull: true,
     },
     primaryImageUrl: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(5000),
         allowNull: true,
     },
     additionalImageUrls: {

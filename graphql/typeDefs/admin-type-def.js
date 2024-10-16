@@ -103,8 +103,12 @@ const adminTypeDefs = gql`
         price: Float!
         quantity: Int!
         availability: Int!
+        transmission: String!
+        fuel_type: String!
+        seats: Int!
         description: String
     }
+
 
     input updateVehicleInput {
         make: String!

@@ -491,20 +491,19 @@ const adminResolvers = {
         //     };
         
         //     let primaryImageUrl = '';
-        // if (primaryImage) {
-        //   const { createReadStream, filename } = await primaryImage;
-        //   primaryImageUrl = await uploadToMinio(createReadStream(), filename);
-        // }
+        //       if (primaryImage) {
+        //         const { createReadStream, filename } = await primaryImage;
+        //         primaryImageUrl = await uploadFile(primaryImage);
+        //       }
 
-        // let additionalImageUrls = [];
-        // if (additionalImages && additionalImages.length > 0) {
-        //   additionalImageUrls = await Promise.all(
-        //     additionalImages.map(async (image) => {
-        //       const { createReadStream, filename } = await image;
-        //       return uploadToMinIO(createReadStream(), filename);
-        //     })
-        //   );
-        // }
+        //       let additionalImageUrls = [];
+        //       if (additionalImages && additionalImages.length > 0) {
+        //         additionalImageUrls = await Promise.all(
+        //           additionalImages.map(async (image) => {
+        //             return uploadFile(image);
+        //           })
+        //         );
+        //       }
         
         // const vehicle = await RentableVehicle.create({
         //   make,
@@ -528,33 +527,68 @@ const adminResolvers = {
         //   }
         // },
         addRentableVehicle: async (_, { input, primaryImage, additionalImages }) => {
+          console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", input, primaryImage, additionalImages)
           try {
-            console.log("primaryImage from resolver is", primaryImage);
-            console.log("Input is:", JSON.stringify(input, null, 2));
+            const {
+              make,
+              model,
+              year,
+              price,
+              quantity,
+              availability,
+              transmission,
+              fuel_type,
+              seats,
+              description,
+            } = input;
+        
+            const bucketName = "carrental";
+            const bucketExists = await minioClient.bucketExists(bucketName);
+            if (!bucketExists) {
+              await minioClient.makeBucket(bucketName);
+            }
+        
+            // Function to upload files to MinIO
+            const uploadFile = async (file) => {
+              try {
+                const { createReadStream, filename } = await file;
+                const objectName = `${Date.now()}-${filename}`;
+                const stream = createReadStream();
+                await minioClient.putObject(bucketName, objectName, stream);
+                return await minioClient.presignedGetObject(bucketName, objectName);
+              } catch (error) {
+                throw new Error(`Error uploading file: ${error.message}`);
+              }
+            };
         
             // Handle primary image upload
             let primaryImageUrl = '';
             if (primaryImage) {
-              const { createReadStream, filename } = await primaryImage;
-              primaryImageUrl = await uploadToMinio(createReadStream(), filename);
+              primaryImageUrl = await uploadFile(primaryImage);
             }
         
-            // Handle additional images upload
+            // Handle additional images (secondary images) upload
             let additionalImageUrls = [];
             if (additionalImages && additionalImages.length > 0) {
               additionalImageUrls = await Promise.all(
-                additionalImages.map(async (image) => {
-                  const { createReadStream, filename } = await image;
-                  return uploadToMinio(createReadStream(), filename);
-                })
+                additionalImages.map((image) => uploadFile(image))
               );
             }
         
-            // Create vehicle in database
+            // Create a new rentable vehicle entry in the database
             const vehicle = await RentableVehicle.create({
-              ...input,
-              primaryImageUrl,
-              additionalImageUrls,
+              make,
+              model,
+              year,
+              price,
+              quantity,
+              availability,
+              transmission,
+              fuel_type,
+              seats,
+              description,
+              primaryImageUrl,      // Save primary image URL
+              additionalImageUrls,   // Save additional image URLs
             });
         
             return vehicle;
@@ -563,6 +597,44 @@ const adminResolvers = {
             throw new Error(`Failed to add rentable vehicle: ${error.message}`);
           }
         },
+        
+        
+        // addRentableVehicle: async (_, { input, primaryImage, additionalImages }) => {
+        //   try {
+        //     console.log("primaryImage from resolver is", primaryImage);
+        //     console.log("Input is:", JSON.stringify(input, null, 2));
+        
+        //     // Handle primary image upload
+        //     let primaryImageUrl = '';
+        //     if (primaryImage) {
+        //       const { createReadStream, filename } = await primaryImage;
+        //       primaryImageUrl = await uploadToMinio(createReadStream(), filename);
+        //     }
+        
+        //     // Handle additional images upload
+        //     let additionalImageUrls = [];
+        //     if (additionalImages && additionalImages.length > 0) {
+        //       additionalImageUrls = await Promise.all(
+        //         additionalImages.map(async (image) => {
+        //           const { createReadStream, filename } = await image;
+        //           return uploadToMinio(createReadStream(), filename);
+        //         })
+        //       );
+        //     }
+        
+        //     // Create vehicle in database
+        //     const vehicle = await RentableVehicle.create({
+        //       ...input,
+        //       primaryImageUrl,
+        //       additionalImageUrls,
+        //     });
+        
+        //     return vehicle;
+        //   } catch (error) {
+        //     console.error('Error adding rentable vehicle:', error);
+        //     throw new Error(`Failed to add rentable vehicle: ${error.message}`);
+        //   }
+        // },
         
         // Mutation to delete the vehicles that the users can rent
         deleteRentableVehicle: async (_, { id }) => {

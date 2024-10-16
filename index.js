@@ -1,6 +1,4 @@
-
-// The entry point of your application. This file sets up the Express server, initializes Apollo Server for handling GraphQL requests, connects to the PostgreSQL database using Sequelize, and starts listening for requests on a specified port.
-import dotenv from 'dotenv'; // Import dotenv
+import dotenv from 'dotenv'; // Import dotenv for environment variables
 dotenv.config(); // Load environment variables
 
 import express from 'express';
@@ -11,42 +9,58 @@ import userResolvers from './graphql/resolvers/user-resolvers.js';
 import adminTypeDefs from './graphql/typeDefs/admin-type-def.js'; // Import admin typeDefs
 import adminResolvers from './graphql/resolvers/admin-resolvers.js'; // Import admin resolvers
 import sequelize from './models/db.js'; // Change this line to use default import
-import {graphqlUploadExpress} from 'graphql-upload'
+import { graphqlUploadExpress } from 'graphql-upload';
 
 const app = express();
 
-// Use CORS middleware
+// Use CORS middleware to enable cross-origin resource sharing
 app.use(cors());
-app.use(graphqlUploadExpress({maxFileSize:10000000,maxFiles:10}))
+
+// Add middleware for handling file uploads (must be added before Apollo middleware)
+app.use(graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 10 }));
+
+// Optional: Add middleware for body parsing
+app.use(express.json());
+
 // Combine type definitions and resolvers
 const typeDefs = [userTypeDefs, adminTypeDefs];
 const resolvers = [userResolvers, adminResolvers];
 
-const server = new ApolloServer({ typeDefs, resolvers });
+const server = new ApolloServer({ 
+    typeDefs, 
+    resolvers, 
+    uploads: false, // Disable Apollo's built-in handling as we use graphqlUploadExpress
 
-// Connect to the database
+
+    context: ({req, res }) =>{
+        const token = req.headers.authorization || '';
+        return {token, req, res, session : req.session}
+    }
+});
+
+// Function to start the server and connect to the database
 const startServer = async () => {
     try {
+        // Connect to the database using Sequelize
         await sequelize.authenticate();
         console.log('Database connection established.');
 
         // Start the Apollo server
         await server.start();
 
-        // Apply middleware after server has started
+        // Apply Apollo middleware to the Express app
         server.applyMiddleware({ app });
 
-        // Optional: Add middleware for body parsing
-        app.use(express.json());
-
+        // Start listening for incoming requests on the specified port
         const PORT = process.env.PORT || 4000;
-        app.listen(PORT, () =>
+        app.listen(PORT, () => 
             console.log(`Server ready at http://localhost:${PORT}${server.graphqlPath}`)
         );
     } catch (err) {
+        // Log any errors that occur during server startup or database connection
         console.error('Unable to connect to the database:', err);
     }
 };
 
-// Invoke the startServer function
+// Start the server
 startServer();
