@@ -14,6 +14,7 @@ const userTypeDefs = gql`
         city: String!
         country: String!
         state: String!
+        imageUrl: String
     }
     
     type UploadResult {
