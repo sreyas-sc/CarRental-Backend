@@ -31,6 +31,7 @@ const userTypeDefs = gql`
         city: String
         state: String
         country: String
+        imageUrl: String
     }
 
 

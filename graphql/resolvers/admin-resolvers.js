@@ -148,7 +148,6 @@ const adminResolvers = {
         //     }
         // },
         async getAvailableCars(_, { startdate, enddate }) {
-          console.log("Requested Date Range:", startdate, enddate);
           try {
             // Step 1: Fetch all cars from the RentableVehicle model
             const allCars = await RentableVehicle.findAll();
