@@ -29,6 +29,7 @@
     "sequelize": "^6.37.3",
     "sequelize-cli": "^6.6.2",
     "twilio": "^5.3.3",
+    "typesense": "^1.8.2",
     "yup": "^1.4.0"
   }
 }

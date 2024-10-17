@@ -10,6 +10,8 @@ import adminTypeDefs from './graphql/typeDefs/admin-type-def.js'; // Import admi
 import adminResolvers from './graphql/resolvers/admin-resolvers.js'; // Import admin resolvers
 import sequelize from './models/db.js'; // Change this line to use default import
 import { graphqlUploadExpress } from 'graphql-upload';
+import { createSchema } from './config/typesenseClient.js'
+
 
 const app = express();
 
@@ -44,6 +46,10 @@ const startServer = async () => {
         // Connect to the database using Sequelize
         await sequelize.authenticate();
         console.log('Database connection established.');
+
+        // Create Typesense schema
+        await createSchema();
+        console.log('Typesense schema created.');
 
         // Start the Apollo server
         await server.start();

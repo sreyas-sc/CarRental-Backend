@@ -17,6 +17,8 @@ import crypto from 'crypto';
 import twilio from  'twilio';
 import { ApolloError } from 'apollo-server';
 // before typesense
+import { indexVehicle } from '../../config/typesenseClient.js';
+// const {indexVehicle} = require('../../config/typesenseClient.js')
 
 
 dotenv.config();
@@ -589,6 +591,31 @@ const adminResolvers = {
               primaryImageUrl,      // Save primary image URL
               additionalImageUrls,   // Save additional image URLs
             });
+
+            // Index the vehicle in Typesense
+            console.log("Vehicle created in database:", vehicle.toJSON());
+
+            console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~Indexing vehicle in Typesense...");
+            const typesenseDocument = {
+              id: vehicle.id.toString(),
+              make,
+              model,
+              year,
+              price,
+              quantity,
+              availability,
+              transmission,
+              fuel_type,
+              seats,
+              description,
+              primaryImageUrl,
+              additionalImageUrls,
+            };
+            console.log("Typesense document:", typesenseDocument);
+
+            await indexVehicle(typesenseDocument);
+            console.log("Vehicle indexed in Typesense successfully");
+
         
             return vehicle;
           } catch (error) {
