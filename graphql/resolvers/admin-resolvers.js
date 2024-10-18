@@ -212,27 +212,52 @@ const adminResolvers = {
         },
 
         // Query to get all the booking (for admin side view)
+        // getAllBookings: async () => {
+        //     try {
+        //       const bookings = await Booking.findAll({
+        //         include: [
+        //           {
+        //             model: User,
+        //             as: 'user',
+        //           },
+        //           {
+        //             model: RentableVehicle,
+        //             as: 'vehicle',
+        //           },
+        //         ],
+        //       });
+        //       console.log('Fetched bookings:', bookings);
+        //       return bookings;
+        //     } catch (error) {
+        //       console.error(error); // Log the error for better debugging
+        //       throw new Error(`Failed to fetch bookings: ${error.message}`);
+        //     }
+        // },
         getAllBookings: async () => {
-            try {
+          try {
               const bookings = await Booking.findAll({
-                include: [
-                  {
-                    model: User,
-                    as: 'user',
-                  },
-                  {
-                    model: RentableVehicle,
-                    as: 'vehicle',
-                  },
-                ],
+                  include: [
+                      {
+                          model: User,
+                          as: 'user',
+                      },
+                      {
+                          model: RentableVehicle,
+                          as: 'vehicle',
+                          paranoid: false,  // Include soft-deleted vehicles
+                      },
+                  ],
+                  paranoid: false, // Include soft-deleted bookings
               });
-              console.log('Fetched bookings:', bookings);
+      
+              console.log('Fetched bookings (including deleted):', bookings);
               return bookings;
-            } catch (error) {
-              console.error(error); // Log the error for better debugging
+          } catch (error) {
+              console.error('Error fetching bookings (including deleted):', error);
               throw new Error(`Failed to fetch bookings: ${error.message}`);
-            }
-        },
+          }
+      },
+      
           
         // Query for getting the booking of a specific user based on the user id (Used in the user profile to show the bookings of the user)
         getBookingsByUserId: async (_, { userId }) => {
@@ -243,8 +268,8 @@ const adminResolvers = {
             // Map over the bookings to fetch user and vehicle details
             const bookingsWithDetails = await Promise.all(
               bookings.map(async (booking) => {
-                const user = await User.findByPk(booking.userId); // Assuming you have a User model
-                const vehicle = await RentableVehicle.findByPk(booking.vehicleId); // Assuming you have a Vehicle model
+                const user = await User.findByPk(booking.userId);
+                const vehicle = await RentableVehicle.findByPk(booking.vehicleId, { paranoid: false }); // Fetch vehicle details including deleted 
     
                 return {
                   ...booking.dataValues, // Spread existing booking properties
@@ -623,44 +648,6 @@ const adminResolvers = {
             throw new Error(`Failed to add rentable vehicle: ${error.message}`);
           }
         },
-        
-        
-        // addRentableVehicle: async (_, { input, primaryImage, additionalImages }) => {
-        //   try {
-        //     console.log("primaryImage from resolver is", primaryImage);
-        //     console.log("Input is:", JSON.stringify(input, null, 2));
-        
-        //     // Handle primary image upload
-        //     let primaryImageUrl = '';
-        //     if (primaryImage) {
-        //       const { createReadStream, filename } = await primaryImage;
-        //       primaryImageUrl = await uploadToMinio(createReadStream(), filename);
-        //     }
-        
-        //     // Handle additional images upload
-        //     let additionalImageUrls = [];
-        //     if (additionalImages && additionalImages.length > 0) {
-        //       additionalImageUrls = await Promise.all(
-        //         additionalImages.map(async (image) => {
-        //           const { createReadStream, filename } = await image;
-        //           return uploadToMinio(createReadStream(), filename);
-        //         })
-        //       );
-        //     }
-        
-        //     // Create vehicle in database
-        //     const vehicle = await RentableVehicle.create({
-        //       ...input,
-        //       primaryImageUrl,
-        //       additionalImageUrls,
-        //     });
-        
-        //     return vehicle;
-        //   } catch (error) {
-        //     console.error('Error adding rentable vehicle:', error);
-        //     throw new Error(`Failed to add rentable vehicle: ${error.message}`);
-        //   }
-        // },
         
         // Mutation to delete the vehicles that the users can rent
         deleteRentableVehicle: async (_, { id }) => {

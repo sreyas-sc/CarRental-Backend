@@ -62,7 +62,7 @@ Booking.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 const syncBookingsTable = async () => {
     try {
-        await Booking.sync(); // This creates the table if it doesn't exist
+        await Booking.sync(); 
     } catch (error) {
         console.error('Error syncing vehicle table:', error);
     }

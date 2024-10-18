@@ -111,41 +111,7 @@ const userResolvers = {
         },
 
         // New Mutation to upload user image
-        // uploadImage: async (_, { userId, file }) => {
-        //     console.log("Image upload",userId, file)
-        //     try {
-        //         // Extract the file data
-        //         const { createReadStream, filename } = await file;
-
-        //         // Define the destination path in MinIO
-        //         const bucketName = 'carrental'; // Ensure this bucket exists
-        //         const filePath = `user-images/${userId}/${filename}`;
-
-        //         // Create a stream to upload the file to MinIO
-        //         const stream = createReadStream();
-
-        //         // Upload the file to MinIO
-        //         await minioClient.putObject(bucketName, filePath, stream, stream.length, {
-        //             'Content-Type': 'image/jpeg', // Set appropriate content type
-        //         });
-
-        //         // Construct the file URL
-        //         const fileUrl = `http://${minioClient.endPoint}:${minioClient.port}/${bucketName}/${filePath}`;
-
-        //         return {
-        //             success: true,
-        //             message: 'Image uploaded successfully',
-        //             fileUrl,
-        //         };
-        //     } catch (error) {
-        //         console.error('Error uploading image:', error);
-        //         return {
-        //             success: false,
-        //             message: 'Failed to upload image',
-        //             fileUrl: null,
-        //         };
-        //     }
-        // },
+        
         uploadImage: async (_, { userId, file }) => {
             try {
                 // Extract the file data

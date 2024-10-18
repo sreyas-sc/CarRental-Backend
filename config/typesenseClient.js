@@ -1,16 +1,17 @@
-// typesenseClient.js
-
 import Typesense from 'typesense';
+import dotenv from 'dotenv';
+dotenv.config();
 
+// Initialize the Typesense client
 const typesenseClient = new Typesense.Client({
   nodes: [
     {
-      host: 'zqt97vp5eimsjaxrp-1.a1.typesense.net',
+      host: 'zqt97vp5eimsjaxrp-1.a1.typesense.net', // Your Typesense server host
       port: '443',
       protocol: 'https',
     },
   ],
-  apiKey: 'VSCBZiQouzeFl3VSafRgPw9ycXYm6tyc',
+  apiKey: process.env.TYPESENSE_API_KEY, // Your Typesense API key
   connectionTimeoutSeconds: 2,
 });
 
@@ -36,13 +37,19 @@ export const createSchema = async () => {
     default_sorting_field: 'price',
   };
 
+  // Check if the collection exists before attempting to delete
   try {
-    await typesenseClient.collections('rentable_vehicles').delete();
-    console.log('Deleted existing schema');
+    const existingCollection = await typesenseClient.collections('rentable_vehicles').retrieve();
+    if (existingCollection) {
+      console.log('Existing schema found, not deleting.');
+      return; // Skip deletion if the collection exists
+    }
   } catch (err) {
-    console.log('No existing schema found');
+    // If the collection does not exist, we can safely create it
+    console.log('No existing schema found, creating a new one.');
   }
 
+  // Create the new collection
   try {
     await typesenseClient.collections().create(schema);
     console.log('Created schema');
@@ -54,11 +61,13 @@ export const createSchema = async () => {
 // Function to index a vehicle in Typesense
 export const indexVehicle = async (vehicle) => {
   try {
-    await typesenseClient.collections('rentable_vehicles').documents().create(vehicle);
+    // Check if the vehicle document already exists and update it if it does
+    await typesenseClient.collections('rentable_vehicles').documents().upsert(vehicle);
     console.log('Indexed vehicle in Typesense');
   } catch (err) {
     console.error('Error indexing vehicle in Typesense:', err);
   }
 };
 
+// Export the Typesense client and other functions
 export { typesenseClient };
