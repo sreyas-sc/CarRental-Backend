@@ -597,9 +597,7 @@ const adminResolvers = {
             });
 
             // Index the vehicle in Typesense
-            console.log("Vehicle created in database:", vehicle.toJSON());
-
-            console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~Indexing vehicle in Typesense...");
+                        console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~Indexing vehicle in Typesense...");
             const typesenseDocument = {
               id: vehicle.id.toString(),
               make,
@@ -638,7 +636,19 @@ const adminResolvers = {
                 if (!result) {
                     return { success: false, message: "Vehicle not found." };
                 }
+
+                 // Ensure Typesense collection exists before attempting to delete
+                const collectionExists = await typesenseClient.collections('rentable_vehicles').retrieve().catch(() => null);
+                if (!collectionExists) {
+                    console.error('Typesense collection does not exist.');
+                    return { success: false, message: "Failed to delete vehicle from Typesense: collection not found." };
+                }
+
+                // Delete the vehicle from Typesense using the correct method
+                await typesenseClient.collections('rentable_vehicles').documents(id.toString()).delete();        
                 return { success: true, message: "Vehicle deleted successfully." };
+
+                
             } catch (error) {
                 console.error('Error deleting vehicle:', error);
                 return { success: false, message: "Failed to delete vehicle." };
@@ -646,154 +656,127 @@ const adminResolvers = {
         },
 
         // Mutation to update the rentable vehicles
-        // updateRentableVehicle: async (
-        //     _,
-        //     { id, make, model, year, price, quantity, description, primaryImage, additionalImages }
-        // ) => {
-        //     try {
-        //         // Find the vehicle by ID
-        //         const vehicle = await RentableVehicle.findByPk(id);
-        //         if (!vehicle) throw new Error('Vehicle not found.');
-        
-        //         // Prepare the input object for updates
-        //         const input = { make, model, year, price, quantity, description };
-        //         if (make !== undefined) input.make = make;
-        
-        //         // If images are provided, upload them to MinIO
-        //         const uploadsDir = path.join(__dirname, '..', 'uploads');
-        //         if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
-        
-        //         const uploadFile = async (file) => {
-        //             const { createReadStream, filename } = await file;
-        //             const filePath = path.join(uploadsDir, filename);
-        //             const stream = createReadStream();
-        //             const writeStream = createWriteStream(filePath);
-        //             stream.pipe(writeStream);
-        
-        //             return await uploadToMinio(filePath, filename);
-        //         };
-        
-        //         // Upload primary image if provided
-        //         if (primaryImage) {
-        //             const uploadedPrimaryImageUrl = await uploadFile(primaryImage);
-        //             input.primaryImageUrl = uploadedPrimaryImageUrl;
-        //         }
-        
-        //         // Upload additional images if provided
-        //         if (additionalImages && additionalImages.length > 0) {
-        //             const uploadedAdditionalImageUrls = await Promise.all(
-        //                 additionalImages.map((image) => uploadFile(image))
-        //             );
-        //             input.additionalImageUrls = uploadedAdditionalImageUrls;
-        //         }
-        
-        //         // Update vehicle details
-        //         await vehicle.update(input);
-        
-        //         // Fetch the updated vehicle data
-        //         const updatedVehicle = await RentableVehicle.findByPk(id);
-        //         console.log('Updated vehicle!!!!!!!!!!!!!!!!!!!:', updatedVehicle);
-        //         if (!updatedVehicle) throw new Error('Updated vehicle not found.');
-        
-        //         // Return the updated vehicle with success message
-        //         return {
-        //             success: true,
-        //             message: "Vehicle updated successfully.",
-        //             vehicle: updatedVehicle.get({ plain: true }) 
-        //         };
-        //     } catch (error) {
-        //         console.error('Error updating vehicle:', error);
-        //         return {
-        //             success: false,
-        //             message: `Failed to update vehicle: ${error.message}`,
-        //             vehicle: null, // to avoid non-nullable error
-        //         };
-        //     }
-        // },
-        updateRentableVehicle: async (
-          _,
-          { id, make, model, year, price, quantity, description, primaryImage, additionalImages }
+      updateRentableVehicle: async (
+        _,
+        { id, make, model, year, price, quantity, availability, transmission, fuel_type, seats, description, primaryImage, additionalImages },
+       
       ) => {
-          try {
-              // Find the vehicle by ID
-              const vehicle = await RentableVehicle.findByPk(id);
-              if (!vehicle) {
-                  return {
-                      success: false,
-                      message: 'Vehicle not found.',
-                      vehicle: null,
-                  };
-              }
-      
-              // Prepare the input object for updates
-              const input = {
-                  make: make !== undefined ? make : vehicle.make,
-                  model: model !== undefined ? model : vehicle.model,
-                  year: year !== undefined ? year : vehicle.year,
-                  price: price !== undefined ? price : vehicle.price,
-                  quantity: quantity !== undefined ? quantity : vehicle.quantity,
-                  description: description !== undefined ? description : vehicle.description,
-                  primaryImageUrl: vehicle.primaryImageUrl, // Default to existing image
-                  additionalImageUrls: vehicle.additionalImageUrls // Default to existing images
-              };
-      
-              // Create upload directory if it doesn't exist
-              const uploadsDir = path.join(__dirname, '..', 'uploads');
-              if (!existsSync(uploadsDir)) {
-                  mkdirSync(uploadsDir, { recursive: true });
-              }
-      
-              const uploadFile = async (file) => {
-                  const { createReadStream, filename } = await file;
-                  const filePath = path.join(uploadsDir, filename);
-                  const stream = createReadStream();
-                  const writeStream = createWriteStream(filePath);
-                  stream.pipe(writeStream);
-      
-                  return await uploadToMinio(filePath, filename);
-              };
-      
-              // Upload primary image if provided
-              if (primaryImage) {
-                  const uploadedPrimaryImageUrl = await uploadFile(primaryImage);
-                  input.primaryImageUrl = uploadedPrimaryImageUrl;
-              }
-      
-              // Upload additional images if provided
-              if (additionalImages && additionalImages.length > 0) {
-                  const uploadedAdditionalImageUrls = await Promise.all(
-                      additionalImages.map((image) => uploadFile(image))
-                  );
-                  input.additionalImageUrls = uploadedAdditionalImageUrls;
-              }
-      
-              // Update vehicle details
-              await vehicle.update(input);
-      
-              // Fetch the updated vehicle data
-              const updatedVehicle = await RentableVehicle.findByPk(id);
-              if (!updatedVehicle) {
-                  return {
-                      success: false,
-                      message: 'Failed to retrieve updated vehicle.',
-                      vehicle: null,
-                  };
-              }
-      
-              // Return the updated vehicle with success message
-              return {
-                  success: true,
-                  message: "Vehicle updated successfully.",
-                  vehicle: updatedVehicle.get({ plain: true }), // Convert to plain object
-              };
-          } catch (error) {
-              console.error('Error updating vehicle:', error);
-              return {
-                  success: false,
-                  message: `Failed to update vehicle: ${error.message}`,
-                  vehicle: null, // Ensure vehicle is null on error
-              };
+        try {
+          // Find the vehicle by ID
+          const vehicle = await RentableVehicle.findByPk(id);
+          if (!vehicle) {
+            return {
+              success: false,
+              message: 'Vehicle not found.',
+              vehicle: null,
+            };
           }
+  
+          // Prepare the input object for updates
+          const input = {
+            make: make !== undefined ? make : vehicle.make,
+            model: model !== undefined ? model : vehicle.model,
+            year: year !== undefined ? year : vehicle.year,
+            price: price !== undefined ? price : vehicle.price,
+            quantity: quantity !== undefined ? quantity : vehicle.quantity,
+            availability: availability !== undefined ? availability : vehicle.availability,
+            transmission: transmission !== undefined ? transmission : vehicle.transmission,
+            fuel_type: fuel_type !== undefined ? fuel_type : vehicle.fuel_type,
+            seats: seats !== undefined ? seats : vehicle.seats,
+            description: description !== undefined ? description : vehicle.description,
+            primaryImageUrl: vehicle.primaryImageUrl,
+            additionalImageUrls: vehicle.additionalImageUrls
+          };
+ 
+          const bucketName = "carrental";
+          const bucketExists = await minioClient.bucketExists(bucketName);
+          console.log("!_!_!_!_!_!_!_!_!_!_!_!_!_!_!",bucketExists)
+          if (!bucketExists) {
+            await minioClient.makeBucket(bucketName);
+          }
+  
+          // Function to upload files to MinIO
+          const uploadFile = async (file) => {
+            try {
+                console.log('MinIO Client:', minioClient); // Log the client
+                const { createReadStream, filename } = await file;
+                const objectName = `${Date.now()}-${filename}`;
+                const stream = createReadStream();
+                await minioClient.putObject(bucketName, objectName, stream);
+                return await minioClient.presignedGetObject(bucketName, objectName);
+            } catch (error) {
+                throw new Error(`Error uploading file: ${error.message}`);
+            }
+        };
+        
+  
+          // Upload primary image if provided
+          if (primaryImage) {
+            input.primaryImageUrl = await uploadFile(primaryImage);
+          }
+  
+          // Upload additional images if provided
+          if (additionalImages && additionalImages.length > 0) {
+            input.additionalImageUrls = await Promise.all(
+              additionalImages.map((image) => uploadFile(image))
+            );
+          }
+  
+          // Update vehicle details
+          await vehicle.update(input);
+  
+          // Fetch the updated vehicle data
+          const updatedVehicle = await RentableVehicle.findByPk(id);
+          if (!updatedVehicle) {
+            return {
+              success: false,
+              message: 'Failed to retrieve updated vehicle.',
+              vehicle: null,
+            };
+          }
+  
+          // Index the updated vehicle in Typesense
+          const typesenseDocument = {
+            id: String(id), // Explicitly convert id to a string
+            make: make !== undefined ? make : vehicle.make,
+            model: model !== undefined ? model : vehicle.model,
+            year: year !== undefined ? year : vehicle.year,
+            price: price !== undefined ? price : vehicle.price,
+            quantity: quantity !== undefined ? quantity : vehicle.quantity,
+            availability: availability !== undefined ? availability : vehicle.availability,
+            transmission: transmission !== undefined ? transmission : vehicle.transmission,
+            fuel_type: fuel_type !== undefined ? fuel_type : vehicle.fuel_type,
+            seats: seats !== undefined ? seats : vehicle.seats,
+            description: description !== undefined ? description : vehicle.description,
+            primaryImageUrl: vehicle.primaryImageUrl,
+            additionalImageUrls: vehicle.additionalImageUrls
+          };
+         
+          console.log("Document to be indexed~~~~~~~~~~~~>:", typesenseDocument);
+          console.log("ID Type Check:", typeof typesenseDocument.id); // Should log 'string'
+
+          try {
+            await indexVehicle(typesenseDocument);
+          } catch (error) {
+            console.error("Error during indexing:", error);
+          }
+
+         
+  
+          // Return the updated vehicle with success message
+          return {
+            success: true,
+            message: "Vehicle updated successfully.",
+            vehicle: updatedVehicle.get({ plain: true }),
+          };
+        } catch (error) {
+          console.error('Error updating vehicle:', error);
+          return {
+            success: false,
+            message: `Failed to update vehicle: ${error.message}`,
+            vehicle: null,
+          };
+        }
       },
       
 
