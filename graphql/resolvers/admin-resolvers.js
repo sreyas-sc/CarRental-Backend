@@ -211,28 +211,7 @@ const adminResolvers = {
             });
         },
 
-        // Query to get all the booking (for admin side view)
-        // getAllBookings: async () => {
-        //     try {
-        //       const bookings = await Booking.findAll({
-        //         include: [
-        //           {
-        //             model: User,
-        //             as: 'user',
-        //           },
-        //           {
-        //             model: RentableVehicle,
-        //             as: 'vehicle',
-        //           },
-        //         ],
-        //       });
-        //       console.log('Fetched bookings:', bookings);
-        //       return bookings;
-        //     } catch (error) {
-        //       console.error(error); // Log the error for better debugging
-        //       throw new Error(`Failed to fetch bookings: ${error.message}`);
-        //     }
-        // },
+        
         getAllBookings: async () => {
           try {
               const bookings = await Booking.findAll({
@@ -471,87 +450,8 @@ const adminResolvers = {
             }
         },
         
-        // Mutation to add rentable vehicles by the admin 
-      
-        // addRentableVehicle: async (_, { input, primaryImage, additionalImages }) => {
-        //   try {
-        //     console.log("primaryImage from resolver is", primaryImage);
-        //     console.log("Input is:", JSON.stringify(input, null, 2));
-            
-        //     const { 
-        //       make, 
-        //       model, 
-        //       year, 
-        //       price, 
-        //       quantity, 
-        //       availability, 
-        //       description, 
-        //       transmission, 
-        //       fuel_type, 
-        //       seats 
-        //     } = input;
-        
-        //     console.log("Input is:", JSON.stringify(input, null, 2));
 
-
-        
-        //     const bucketName = "carrental";
-        //     const bucketExists = await minioClient.bucketExists(bucketName);
-        //     if (!bucketExists) {
-        //       await minioClient.makeBucket(bucketName);
-        //     }
-        
-        //     const uploadFile = async (file) => {
-        //       const { createReadStream, filename } = await file;
-        //       const objectName = `${Date.now()}-${filename}`;
-        //       const stream = createReadStream();
-        
-        //       await new Promise((resolve, reject) => {
-        //         minioClient.putObject(bucketName, objectName, stream, (err, etag) => {
-        //           if (err) reject(err);
-        //           else resolve(etag);
-        //         });
-        //       });
-        
-        //       return await minioClient.presignedGetObject(bucketName, objectName);
-        //     };
-        
-        //     let primaryImageUrl = '';
-        //       if (primaryImage) {
-        //         const { createReadStream, filename } = await primaryImage;
-        //         primaryImageUrl = await uploadFile(primaryImage);
-        //       }
-
-        //       let additionalImageUrls = [];
-        //       if (additionalImages && additionalImages.length > 0) {
-        //         additionalImageUrls = await Promise.all(
-        //           additionalImages.map(async (image) => {
-        //             return uploadFile(image);
-        //           })
-        //         );
-        //       }
-        
-        // const vehicle = await RentableVehicle.create({
-        //   make,
-        //   model,
-        //   year,
-        //   price,
-        //   quantity,
-        //   availability,
-        //   description,
-        //   transmission,
-        //   fuel_type,
-        //   seats,
-        //   primaryImageUrl,
-        //   additionalImageUrls,
-        // });
-
-        // return vehicle;
-        //   } catch (error) {
-        //     console.error('Error adding rentable vehicle:', error);
-        //     throw new Error(`Failed to add rentable vehicle: ${error.message}`);
-        //   }
-        // },
+        // Mutation to add rentable vehicles by the admin
         addRentableVehicle: async (_, { input, primaryImage, additionalImages }) => {
           console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", input, primaryImage, additionalImages)
           try {
