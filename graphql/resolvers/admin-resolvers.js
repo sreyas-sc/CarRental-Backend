@@ -15,9 +15,11 @@ import Razorpay from 'razorpay';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import twilio from  'twilio';
+import { validateAdminLogin } from '../../requests/admin.js';
 import { ApolloError } from 'apollo-server';
 // before typesense
 import { indexVehicle } from '../../config/typesenseClient.js';
+import Typesense from 'typesense';
 // const {indexVehicle} = require('../../config/typesenseClient.js')
 
 
@@ -35,6 +37,17 @@ const razorpay = new Razorpay({
     key_secret: process.env.KEY_SECRET
   });
 
+  const typesenseClient = new Typesense.Client({
+    nodes: [
+      {
+        host: 'zqt97vp5eimsjaxrp-1.a1.typesense.net', // Your Typesense server host
+        port: '443',
+        protocol: 'https',
+      },
+    ],
+    apiKey: process.env.TYPESENSE_API_KEY, // Your Typesense API key
+    connectionTimeoutSeconds: 2,
+  });
 
 // Workaround to get __dirname in ESM
 import { fileURLToPath } from 'url';
@@ -100,6 +113,7 @@ const adminResolvers = {
         },    
         
         // Query to get all the available cars that the user can rent based on the provided intut date(from and to date)
+
         // async getAvailableCars(_, { startdate, enddate }) {
         //     console.log("!!!!!!!!!!!!!!!!!!");
         //     console.log("Requested Date Range:", startdate, enddate);
@@ -149,12 +163,62 @@ const adminResolvers = {
         //       throw new Error('Error fetching available cars.');
         //     }
         // },
-        async getAvailableCars(_, { startdate, enddate }) {
-          try {
-            // Step 1: Fetch all cars from the RentableVehicle model
-            const allCars = await RentableVehicle.findAll();
+        // async getAvailableCars(_, { startdate, enddate }) {
+        //   try {
+        //     // Step 1: Fetch all cars from the RentableVehicle model
+        //     const allCars = await RentableVehicle.findAll();
         
-            // Step 2: Fetch bookings that overlap with the requested date range
+        //     // Step 2: Fetch bookings that overlap with the requested date range
+        //     const overlappingBookings = await Booking.findAll({
+        //       where: {
+        //         [Op.or]: [
+        //           {
+        //             startDate: {
+        //               [Op.lte]: enddate,
+        //             },
+        //             endDate: {
+        //               [Op.gte]: startdate,
+        //             },
+        //           },
+        //           {
+        //             startDate: {
+        //               [Op.gte]: startdate,
+        //             },
+        //             endDate: {
+        //               [Op.lte]: enddate,
+        //             },
+        //           },
+        //         ],
+        //       },
+        //     });
+        
+        //     // Step 3: Count booked vehicles
+        //     const bookedVehicleCounts = overlappingBookings.reduce((acc, booking) => {
+        //       acc[booking.vehicleId] = (acc[booking.vehicleId] || 0) + 1;
+        //       return acc;
+        //     }, {});
+        
+        //     // Step 4: Filter available vehicles considering quantity
+        //     const availableCars = allCars.filter(vehicle => {
+        //       const bookedCount = bookedVehicleCounts[vehicle.id] || 0;
+        //       return vehicle.quantity > bookedCount;
+        //     });
+        
+        //     // Log available cars
+        //     console.log("Available Cars:", availableCars);
+        
+        //     // Step 5: Return the list of available cars
+        //     return availableCars;
+            
+        //   } catch (error) {
+        //     console.error('Error fetching available cars:', error);
+        //     throw new Error('Error fetching available cars.');
+        //   }
+        // },
+
+        async getAvailableCars(_, { startdate, enddate, searchTerm = '', sortBy = '' }) {
+          try {
+            // Step 1: Fetch bookings that overlap with the requested date range
             const overlappingBookings = await Booking.findAll({
               where: {
                 [Op.or]: [
@@ -178,22 +242,37 @@ const adminResolvers = {
               },
             });
         
-            // Step 3: Count booked vehicles
+            // Step 2: Count booked vehicles
             const bookedVehicleCounts = overlappingBookings.reduce((acc, booking) => {
               acc[booking.vehicleId] = (acc[booking.vehicleId] || 0) + 1;
               return acc;
             }, {});
         
-            // Step 4: Filter available vehicles considering quantity
-            const availableCars = allCars.filter(vehicle => {
+            // Step 3: Prepare Typesense search parameters
+            let searchParameters = {
+              q: searchTerm,
+              query_by: 'make,model,description',
+              sort_by: sortBy || 'price:asc',
+              per_page: 100, // Adjust as needed
+            };
+        
+            // Step 4: Perform Typesense search
+            const searchResults = await typesenseClient
+              .collections('rentable_vehicles')
+              .documents()
+              .search(searchParameters);
+        
+            // Step 5: Filter available vehicles considering quantity
+            const availableCars = searchResults.hits.filter(hit => {
+              const vehicle = hit.document;
               const bookedCount = bookedVehicleCounts[vehicle.id] || 0;
               return vehicle.quantity > bookedCount;
-            });
+            }).map(hit => hit.document);
         
             // Log available cars
             console.log("Available Cars:", availableCars);
         
-            // Step 5: Return the list of available cars
+            // Step 6: Return the list of available cars
             return availableCars;
             
           } catch (error) {
@@ -567,85 +646,180 @@ const adminResolvers = {
         },
 
         // Mutation to update the rentable vehicles
+        // updateRentableVehicle: async (
+        //     _,
+        //     { id, make, model, year, price, quantity, description, primaryImage, additionalImages }
+        // ) => {
+        //     try {
+        //         // Find the vehicle by ID
+        //         const vehicle = await RentableVehicle.findByPk(id);
+        //         if (!vehicle) throw new Error('Vehicle not found.');
+        
+        //         // Prepare the input object for updates
+        //         const input = { make, model, year, price, quantity, description };
+        //         if (make !== undefined) input.make = make;
+        
+        //         // If images are provided, upload them to MinIO
+        //         const uploadsDir = path.join(__dirname, '..', 'uploads');
+        //         if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
+        
+        //         const uploadFile = async (file) => {
+        //             const { createReadStream, filename } = await file;
+        //             const filePath = path.join(uploadsDir, filename);
+        //             const stream = createReadStream();
+        //             const writeStream = createWriteStream(filePath);
+        //             stream.pipe(writeStream);
+        
+        //             return await uploadToMinio(filePath, filename);
+        //         };
+        
+        //         // Upload primary image if provided
+        //         if (primaryImage) {
+        //             const uploadedPrimaryImageUrl = await uploadFile(primaryImage);
+        //             input.primaryImageUrl = uploadedPrimaryImageUrl;
+        //         }
+        
+        //         // Upload additional images if provided
+        //         if (additionalImages && additionalImages.length > 0) {
+        //             const uploadedAdditionalImageUrls = await Promise.all(
+        //                 additionalImages.map((image) => uploadFile(image))
+        //             );
+        //             input.additionalImageUrls = uploadedAdditionalImageUrls;
+        //         }
+        
+        //         // Update vehicle details
+        //         await vehicle.update(input);
+        
+        //         // Fetch the updated vehicle data
+        //         const updatedVehicle = await RentableVehicle.findByPk(id);
+        //         console.log('Updated vehicle!!!!!!!!!!!!!!!!!!!:', updatedVehicle);
+        //         if (!updatedVehicle) throw new Error('Updated vehicle not found.');
+        
+        //         // Return the updated vehicle with success message
+        //         return {
+        //             success: true,
+        //             message: "Vehicle updated successfully.",
+        //             vehicle: updatedVehicle.get({ plain: true }) 
+        //         };
+        //     } catch (error) {
+        //         console.error('Error updating vehicle:', error);
+        //         return {
+        //             success: false,
+        //             message: `Failed to update vehicle: ${error.message}`,
+        //             vehicle: null, // to avoid non-nullable error
+        //         };
+        //     }
+        // },
         updateRentableVehicle: async (
-            _,
-            { id, make, model, year, price, quantity, description, primaryImage, additionalImages }
-        ) => {
-            try {
-                // Find the vehicle by ID
-                const vehicle = await RentableVehicle.findByPk(id);
-                if (!vehicle) throw new Error('Vehicle not found.');
-        
-                // Prepare the input object for updates
-                const input = { make, model, year, price, quantity, description };
-                if (make !== undefined) input.make = make;
-        
-                // If images are provided, upload them to MinIO
-                const uploadsDir = path.join(__dirname, '..', 'uploads');
-                if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
-        
-                const uploadFile = async (file) => {
-                    const { createReadStream, filename } = await file;
-                    const filePath = path.join(uploadsDir, filename);
-                    const stream = createReadStream();
-                    const writeStream = createWriteStream(filePath);
-                    stream.pipe(writeStream);
-        
-                    return await uploadToMinio(filePath, filename);
-                };
-        
-                // Upload primary image if provided
-                if (primaryImage) {
-                    const uploadedPrimaryImageUrl = await uploadFile(primaryImage);
-                    input.primaryImageUrl = uploadedPrimaryImageUrl;
-                }
-        
-                // Upload additional images if provided
-                if (additionalImages && additionalImages.length > 0) {
-                    const uploadedAdditionalImageUrls = await Promise.all(
-                        additionalImages.map((image) => uploadFile(image))
-                    );
-                    input.additionalImageUrls = uploadedAdditionalImageUrls;
-                }
-        
-                // Update vehicle details
-                await vehicle.update(input);
-        
-                // Fetch the updated vehicle data
-                const updatedVehicle = await RentableVehicle.findByPk(id);
-                if (!updatedVehicle) throw new Error('Updated vehicle not found.');
-        
-                // Return the updated vehicle with success message
-                return {
-                    success: true,
-                    message: "Vehicle updated successfully.",
-                    vehicle: updatedVehicle, // Ensure this is valid and non-null
-                };
-            } catch (error) {
-                console.error('Error updating vehicle:', error);
-                return {
-                    success: false,
-                    message: `Failed to update vehicle: ${error.message}`,
-                    vehicle: null, // Explicitly return null to avoid non-nullable error
-                };
-            }
-        },
+          _,
+          { id, make, model, year, price, quantity, description, primaryImage, additionalImages }
+      ) => {
+          try {
+              // Find the vehicle by ID
+              const vehicle = await RentableVehicle.findByPk(id);
+              if (!vehicle) {
+                  return {
+                      success: false,
+                      message: 'Vehicle not found.',
+                      vehicle: null,
+                  };
+              }
+      
+              // Prepare the input object for updates
+              const input = {
+                  make: make !== undefined ? make : vehicle.make,
+                  model: model !== undefined ? model : vehicle.model,
+                  year: year !== undefined ? year : vehicle.year,
+                  price: price !== undefined ? price : vehicle.price,
+                  quantity: quantity !== undefined ? quantity : vehicle.quantity,
+                  description: description !== undefined ? description : vehicle.description,
+                  primaryImageUrl: vehicle.primaryImageUrl, // Default to existing image
+                  additionalImageUrls: vehicle.additionalImageUrls // Default to existing images
+              };
+      
+              // Create upload directory if it doesn't exist
+              const uploadsDir = path.join(__dirname, '..', 'uploads');
+              if (!existsSync(uploadsDir)) {
+                  mkdirSync(uploadsDir, { recursive: true });
+              }
+      
+              const uploadFile = async (file) => {
+                  const { createReadStream, filename } = await file;
+                  const filePath = path.join(uploadsDir, filename);
+                  const stream = createReadStream();
+                  const writeStream = createWriteStream(filePath);
+                  stream.pipe(writeStream);
+      
+                  return await uploadToMinio(filePath, filename);
+              };
+      
+              // Upload primary image if provided
+              if (primaryImage) {
+                  const uploadedPrimaryImageUrl = await uploadFile(primaryImage);
+                  input.primaryImageUrl = uploadedPrimaryImageUrl;
+              }
+      
+              // Upload additional images if provided
+              if (additionalImages && additionalImages.length > 0) {
+                  const uploadedAdditionalImageUrls = await Promise.all(
+                      additionalImages.map((image) => uploadFile(image))
+                  );
+                  input.additionalImageUrls = uploadedAdditionalImageUrls;
+              }
+      
+              // Update vehicle details
+              await vehicle.update(input);
+      
+              // Fetch the updated vehicle data
+              const updatedVehicle = await RentableVehicle.findByPk(id);
+              if (!updatedVehicle) {
+                  return {
+                      success: false,
+                      message: 'Failed to retrieve updated vehicle.',
+                      vehicle: null,
+                  };
+              }
+      
+              // Return the updated vehicle with success message
+              return {
+                  success: true,
+                  message: "Vehicle updated successfully.",
+                  vehicle: updatedVehicle.get({ plain: true }), // Convert to plain object
+              };
+          } catch (error) {
+              console.error('Error updating vehicle:', error);
+              return {
+                  success: false,
+                  message: `Failed to update vehicle: ${error.message}`,
+                  vehicle: null, // Ensure vehicle is null on error
+              };
+          }
+      },
+      
 
         // Mutation for admin login
         loginAdmin: async (_, { email, password }) => {
+
+            // Step 1: Validate input using Joi
+            const { error } = validateAdminLogin({ email, password });
+            if (error) {
+              throw new Error(error.details[0].message); // Throw validation error if present
+            }
+            // Step 2: Find admin by email
             const admin = await Admin.findOne({ where: { email } });
-
             if (!admin) {
-                throw new Error('Admin not found');
+              throw new Error('Admin not found');
             }
 
+            // Step 3: Compare passwords
             const isMatch = await bcrypt.compare(password, admin.password);
-
             if (!isMatch) {
-                throw new Error('Password does not match');
+              throw new Error('Password does not match');
             }
 
+            // Step 4: Generate JWT token
             const token = createToken(admin.id);
+            // Step 5: Return the token and admin data
             return { token, user: admin }; // Return both token and user information
         },
 

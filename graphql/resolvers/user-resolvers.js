@@ -6,6 +6,7 @@ import User from '../../models/user-model.js';
 import { createToken } from '../../utils/createToken.js'; 
 import minioClient from '../../config/minioClient.js';
 import { GraphQLUpload } from 'graphql-upload';
+import { validateRegister, validateLogin, validateUpdateUser, validateChangePassword } from '../../requests/user.js';
 
 const userResolvers = {
 
@@ -22,8 +23,12 @@ const userResolvers = {
 
         // Mutation for user registration
         register: async (_, { name, email, password, phone, city, country, state }) => {
-            console.log("the date from the database is ", name, email, password,  phone, city, country, state);
 
+            // Validation using Joi
+            const { error } = validateRegister({ name, email, password, phone, city, country, state });
+            if (error) {
+                throw new Error(error.details[0].message);
+            }
 
             const hashedPassword = await bcrypt.hash(password, 10);
             return await User.create({ 
@@ -39,8 +44,14 @@ const userResolvers = {
 
         // Mutation for user login
         login: async (_, { email, password }) => {
+            // Validate Login Input using user entered password and hashed password
+            const { error } = validateLogin({ email, password });
+            if (error) {
+                throw new Error(error.details[0].message);
+            }
             const user = await User.findOne({ where: { email } });
 
+            
             if (!user) {
                 throw new Error('User not found');  // Throw an error instead of returning null
             }
@@ -50,44 +61,39 @@ const userResolvers = {
             if (!isMatch) {
                 throw new Error('Password does not match');  // Throw an error instead of returning null
             }
-
+            // Create token for loggedin user
             const token = createToken(user.id);
-            return { token, user };  // Return both token and user information
+            // Return both token and user information
+            return { token, user };  
         },
 
         // Mutation to update user profile detsils
         updateUser: async (_, { id, input }) => {
-            console.log("The User id is", id)
-            console.log("the  input is", input)
 
-            try {
-              
-              // Ensure models.User exists
-              if (!User) {
-                throw new Error("User model is not available in context");
-              }
-          
-              // Find the user by their primary key (ID)
-              const user = await User.findByPk(id);
-              if (!user) {
-                throw new Error('User not found');
-              }
-          
-              // Update user with new input data
-              await user.update(input);
-          
-              return user;
-            } catch (error) {
-              console.error('Error updating user:', error);
-              throw new Error('Failed to update user');
+            // Validate update user input
+            const { error } = validateUpdateUser(input);
+            if (error) {
+                throw new Error(error.details[0].message);
             }
+
+            const user = await User.findByPk(id);
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            await user.update(input);
+            return user;
         },
 
 
         // Mutation to update user password
         changePassword: async (_, { userId, currentPassword, newPassword }) => {
-            console.log("New password",  newPassword)   
-            console.log("Current password", currentPassword)
+
+            const { error } = validateChangePassword({ currentPassword, newPassword });
+            if (error) {
+                throw new Error(error.details[0].message);
+            }
+           
             
             const user = await User.findByPk(userId);
 

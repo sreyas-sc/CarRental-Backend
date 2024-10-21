@@ -211,7 +211,7 @@ const adminTypeDefs = gql`
             availability: Int,
             primaryImage: Upload,
             additionalImages: [Upload]
-        ): RentableVehicle
+        ):  UpdateRentableVehicleResponse!
 
         deleteRentableVehicle(id: String!): DeleteResponse!
 
