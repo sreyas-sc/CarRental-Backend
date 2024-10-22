@@ -23,6 +23,7 @@ const userResolvers = {
 
         // Mutation for user registration
         register: async (_, { name, email, password, phone, city, country, state }) => {
+            console.log("Register resolver hit"); // Debugging log
 
             // Validation using Joi
             const { error } = validateRegister({ name, email, password, phone, city, country, state });

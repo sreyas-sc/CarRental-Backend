@@ -16,6 +16,8 @@ const userTypeDefs = gql`
         state: String!
         imageUrl: String
     }
+
+    
     
     type UploadResult {
         success: Boolean!

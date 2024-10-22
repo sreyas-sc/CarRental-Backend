@@ -20,6 +20,7 @@ import { ApolloError } from 'apollo-server';
 // before typesense
 import { indexVehicle } from '../../config/typesenseClient.js';
 import Typesense from 'typesense';
+
 // const {indexVehicle} = require('../../config/typesenseClient.js')
 
 
@@ -114,108 +115,7 @@ const adminResolvers = {
         
         // Query to get all the available cars that the user can rent based on the provided intut date(from and to date)
 
-        // async getAvailableCars(_, { startdate, enddate }) {
-        //     console.log("!!!!!!!!!!!!!!!!!!");
-        //     console.log("Requested Date Range:", startdate, enddate);
-        //     try {
-        //       // Step 1: Fetch all cars from the RentableVehicle model
-        //       const allCars = await RentableVehicle.findAll();
-          
-        //       // Step 2: Fetch bookings that overlap with the requested date range
-        //       const overlappingBookings = await Booking.findAll({
-        //         where: {
-        //           [Op.or]: [
-        //             {
-        //               startDate: {
-        //                 [Op.lte]: enddate,
-        //               },
-        //               endDate: {
-        //                 [Op.gte]: startdate,
-        //               },
-        //             },
-        //             {
-        //               startDate: {
-        //                 [Op.gte]: startdate,
-        //               },
-        //               endDate: {
-        //                 [Op.lte]: enddate,
-        //               },
-        //             },
-        //           ],
-        //         },
-        //       });
-          
-        //       // Step 3: Create a set of unavailable vehicle IDs
-        //       const unavailableVehicleIds = new Set(overlappingBookings.map(booking => booking.vehicleId));
-          
-        //       // Step 4: Filter available vehicles
-        //       const availableCars = allCars.filter(vehicle => !unavailableVehicleIds.has(vehicle.id));
-          
-        //       // Log available cars
-        //       console.log("Available Cars:", availableCars);
-          
-        //       // Step 5: Return the list of available cars
-        //       console.log("These are the available cars~~~~~~~~~~~~~~~~~~~~~~~", availableCars)
-        //       return availableCars;
-              
-        //     } catch (error) {
-        //       console.error('Error fetching available cars:', error);
-        //       throw new Error('Error fetching available cars.');
-        //     }
-        // },
-        // async getAvailableCars(_, { startdate, enddate }) {
-        //   try {
-        //     // Step 1: Fetch all cars from the RentableVehicle model
-        //     const allCars = await RentableVehicle.findAll();
         
-        //     // Step 2: Fetch bookings that overlap with the requested date range
-        //     const overlappingBookings = await Booking.findAll({
-        //       where: {
-        //         [Op.or]: [
-        //           {
-        //             startDate: {
-        //               [Op.lte]: enddate,
-        //             },
-        //             endDate: {
-        //               [Op.gte]: startdate,
-        //             },
-        //           },
-        //           {
-        //             startDate: {
-        //               [Op.gte]: startdate,
-        //             },
-        //             endDate: {
-        //               [Op.lte]: enddate,
-        //             },
-        //           },
-        //         ],
-        //       },
-        //     });
-        
-        //     // Step 3: Count booked vehicles
-        //     const bookedVehicleCounts = overlappingBookings.reduce((acc, booking) => {
-        //       acc[booking.vehicleId] = (acc[booking.vehicleId] || 0) + 1;
-        //       return acc;
-        //     }, {});
-        
-        //     // Step 4: Filter available vehicles considering quantity
-        //     const availableCars = allCars.filter(vehicle => {
-        //       const bookedCount = bookedVehicleCounts[vehicle.id] || 0;
-        //       return vehicle.quantity > bookedCount;
-        //     });
-        
-        //     // Log available cars
-        //     console.log("Available Cars:", availableCars);
-        
-        //     // Step 5: Return the list of available cars
-        //     return availableCars;
-            
-        //   } catch (error) {
-        //     console.error('Error fetching available cars:', error);
-        //     throw new Error('Error fetching available cars.');
-        //   }
-        // },
-
         async getAvailableCars(_, { startdate, enddate, searchTerm = '', sortBy = '' }) {
           try {
             // Step 1: Fetch bookings that overlap with the requested date range
