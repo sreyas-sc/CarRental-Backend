@@ -7,6 +7,8 @@ import { createToken } from '../../utils/createToken.js';
 import minioClient from '../../config/minioClient.js';
 import { GraphQLUpload } from 'graphql-upload';
 import { validateRegister, validateLogin, validateUpdateUser, validateChangePassword } from '../../requests/user.js';
+import { ApolloError } from 'apollo-server-express'; // Import ApolloError
+
 
 const userResolvers = {
 
@@ -44,29 +46,91 @@ const userResolvers = {
         },
 
         // Mutation for user login
-        login: async (_, { email, password }) => {
-            // Validate Login Input using user entered password and hashed password
-            const { error } = validateLogin({ email, password });
-            if (error) {
-                throw new Error(error.details[0].message);
-            }
-            const user = await User.findOne({ where: { email } });
+        // login: async (_, { email, password }) => {
+        //     // Validate Login Input using user entered password and hashed password
+        //     const { error } = validateLogin({ email, password });
+        //     if (error) {
+        //         throw new Error(error.details[0].message);
+        //     }
+        //     const user = await User.findOne({ where: { email } });
 
             
-            if (!user) {
-                throw new Error('User not found');  // Throw an error instead of returning null
-            }
+        //     if (!user) {
+        //         throw new Error('User not found');  // Throw an error instead of returning null
+        //     }
 
-            const isMatch = await bcrypt.compare(password, user.password);
+        //     const isMatch = await bcrypt.compare(password, user.password);
 
-            if (!isMatch) {
-                throw new Error('Password does not match');  // Throw an error instead of returning null
+        //     if (!isMatch) {
+        //         throw new Error('Password does not match');  // Throw an error instead of returning null
+        //     }
+        //     // Create token for loggedin user
+        //     const token = createToken(user.id);
+        //     // Return both token and user information
+        //     return { token, user };  
+        // },
+
+        login: async (_, { email, password }) => {
+            try {
+                // Validate Login Input
+                const { error } = validateLogin({ email, password });
+                if (error) {
+                    throw new ApolloError('Validation failed', '422', {
+                        validationError: error.details[0].message,
+                        status: 422
+                    });
+                }
+        
+                // Find user by email
+                const user = await User.findOne({ where: { email } });
+                if (!user) {
+                    throw new ApolloError('User not found', '404', {
+                        userNotFound: 'No user found with this email',
+                        status: 404
+                    });
+                }
+        
+                // Compare password
+                const isMatch = await bcrypt.compare(password, user.password);
+                if (!isMatch) {
+                    throw new ApolloError('Password does not match', '422', {
+                        passwordMismatch: 'Incorrect password',
+                        status: 422
+                    });
+                }
+        
+                // Generate token
+                const token = createToken(user.id);
+        
+                // Return success response
+                return {
+                    token,
+                    user,
+                    status: 200,
+                    message: 'Login successful'
+                };
+        
+            } catch (error) {
+                if (error.extensions?.code === '422') {
+                    throw new ApolloError(error.message, '422', {
+                        ...error.extensions,
+                        status: 422
+                    });
+                } else if (error.extensions?.code === '404') {
+                    throw new ApolloError(error.message, '404', {
+                        ...error.extensions,
+                        status: 404
+                    });
+                } else {
+                    throw new ApolloError('Internal server error', '500', {
+                        internalServerError: 'Something went wrong during login',
+                        status: 500
+                    });
+                }
             }
-            // Create token for loggedin user
-            const token = createToken(user.id);
-            // Return both token and user information
-            return { token, user };  
         },
+        
+
 
         // Mutation to update user profile detsils
         updateUser: async (_, { id, input }) => {

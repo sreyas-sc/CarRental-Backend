@@ -15,7 +15,7 @@ import Razorpay from 'razorpay';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import twilio from  'twilio';
-import { validateAdminLogin } from '../../requests/admin.js';
+import { validateAdminLogin, validateRentableVehicle } from '../../requests/admin.js';
 import { ApolloError } from 'apollo-server';
 // before typesense
 import { indexVehicle } from '../../config/typesenseClient.js';
@@ -432,7 +432,13 @@ const adminResolvers = {
 
         // Mutation to add rentable vehicles by the admin
         addRentableVehicle: async (_, { input, primaryImage, additionalImages }) => {
-          console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", input, primaryImage, additionalImages)
+
+          // Validate the input using Joi
+          const { error } = validateRentableVehicle(input);
+          if (error) {
+            throw new Error(error.details[0].message); // Throw error with the first validation message
+          }
+
           try {
             const {
               make,
@@ -497,7 +503,7 @@ const adminResolvers = {
             });
 
             // Index the vehicle in Typesense
-                        console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~Indexing vehicle in Typesense...");
+            console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~Indexing vehicle in Typesense...");
             const typesenseDocument = {
               id: vehicle.id.toString(),
               make,

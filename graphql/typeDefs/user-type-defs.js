@@ -50,6 +50,8 @@ const userTypeDefs = gql`
     type LoginResponse {
         token: String!
         user: User
+        status: Int!
+        message: String
     }
 
     type ChangePasswordResponse {
