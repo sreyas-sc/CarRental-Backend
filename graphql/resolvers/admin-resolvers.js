@@ -6,29 +6,30 @@ import Vehicle from '../../models/vehicle-model.js';
 import RentableVehicle from '../../models/rentable-vehicle-model.js';
 import sequelize from '../../models/db.js';
 import minioClient from '../../config/minioClient.js';
-import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import Booking from '../../models/booking-model.js';
 import { GraphQLUpload } from 'graphql-upload';
 import { Op } from 'sequelize';
-import Razorpay from 'razorpay';
+import Razorpay from 'razorpay'; 
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import twilio from  'twilio';
-import { validateAdminLogin, validateRentableVehicle } from '../../requests/admin.js';
-import { ApolloError } from 'apollo-server';
-// before typesense
+import twilio from  'twilio';  //for  sending otp via twilio
+
+import { validateVehicle } from '../../requests/vehicleValidation.js';
+// import { UserInputError, ApolloError } from 'apollo-server-micro';
+import { validateAdminLogin, validateRentableVehicle } from '../../requests/admin.js'; //Joi validations
+import { ApolloError, UserInputError } from 'apollo-server'; //for showing apollo errors
+
 import { indexVehicle } from '../../config/typesenseClient.js';
 import Typesense from 'typesense';
 
-// const {indexVehicle} = require('../../config/typesenseClient.js')
 
-
+// for configuration of the environment variables
 dotenv.config();
 
-
+// Twilio initialization
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-// In-memory storage for OTPs (replace with database in production)
+// In-memory storage for OTPs
 const otpStorage = new Map();
 
 
@@ -65,11 +66,17 @@ const uploadToMinio = async (filePath, fileName) => {
 };
 
 const adminResolvers = {
-    Upload: GraphQLUpload,
+
+    Upload: GraphQLUpload, //for file upload in graphql
+
+    // *****************Queries***********************
     Query: {
+
+        // Query to get all Admins
         getAllAdmins: async () => {
             return await Admin.findAll();
         },
+        // __________________________________________________________________________
 
         // Query to get all the cars
         getAllCars: async () => {
@@ -77,6 +84,7 @@ const adminResolvers = {
                 attributes: ['id', 'make', 'model', 'year', 'createdAt', 'updatedAt'],
             });
         },
+        // __________________________________________________________________________
 
         // Get all makes( distinct for avoiding duplication)
         getAllMakes: async () => {
@@ -85,6 +93,7 @@ const adminResolvers = {
                 raw: true,
             }).then(results => results.map(result => result.make));
         },
+        // __________________________________________________________________________
 
         // Query to get the model of the  vehicle with the provided make
         getModelsByMake: async (_, { make }) => {
@@ -93,6 +102,7 @@ const adminResolvers = {
                 where: { make } 
             });
         },
+        // __________________________________________________________________________
 
         // Query to get the year by vehicle make and year( for filling the dropdown in add rentable vehicles)
         getVehicleByMakeAndModel: async (_, { make, model }) => {
@@ -102,6 +112,7 @@ const adminResolvers = {
             }
             return vehicle;
         },
+        // __________________________________________________________________________
 
         // Query get all the vehicles that are rentble(for admin view and user view)
         getRentableVehicles: async () => {
@@ -111,11 +122,10 @@ const adminResolvers = {
             } catch (error) {
                 throw new Error('Failed to fetch rentable vehicles: ' + error.message);
             }
-        },    
+        }, 
+        // __________________________________________________________________________   
         
-        // Query to get all the available cars that the user can rent based on the provided intut date(from and to date)
-
-        
+        // Query to get all the available cars that the user can rent based on the provided input date(from and to date)
         async getAvailableCars(_, { startdate, enddate, searchTerm = '', sortBy = '' }) {
           try {
             // Step 1: Fetch bookings that overlap with the requested date range
@@ -153,7 +163,7 @@ const adminResolvers = {
               q: searchTerm,
               query_by: 'make,model,description',
               sort_by: sortBy || 'price:asc',
-              per_page: 100, // Adjust as needed
+              per_page: 100, 
             };
         
             // Step 4: Perform Typesense search
@@ -180,8 +190,8 @@ const adminResolvers = {
             throw new Error('Error fetching available cars.');
           }
         },
+        // __________________________________________________________________________
           
-        
         // Query to get the vehicle details by the id of the vehicle
         getVehicleDetailsById: async (_, { id }) => {
             return await RentableVehicle.findOne({  // Use findOne to get a single record
@@ -189,8 +199,9 @@ const adminResolvers = {
                 where: { id }
             });
         },
+        // __________________________________________________________________________
 
-        
+        // Get all the user bookings(for admin's view)
         getAllBookings: async () => {
           try {
               const bookings = await Booking.findAll({
@@ -214,9 +225,9 @@ const adminResolvers = {
               console.error('Error fetching bookings (including deleted):', error);
               throw new Error(`Failed to fetch bookings: ${error.message}`);
           }
-      },
-      
-          
+        },
+        // __________________________________________________________________________
+        
         // Query for getting the booking of a specific user based on the user id (Used in the user profile to show the bookings of the user)
         getBookingsByUserId: async (_, { userId }) => {
           try {
@@ -256,8 +267,8 @@ const adminResolvers = {
             }
         
             // Static phone number in international format
-            const phone = '+918111904512';
-        
+            const phone = '+918111904512';  // Replace with the user's phone number(twilio free plan only allows one number hence the static number)
+
             // Send the OTP via Twilio
             await client.verify.v2.services(serviceSid)
               .verifications
@@ -269,6 +280,7 @@ const adminResolvers = {
             return { success: false, message: 'Failed to send OTP' };
           }
         },
+        // __________________________________________________________________________
 
         // Mutation for OTP Verification with Twilio
         verifyOTP: async (_, { otp }) => {
@@ -290,7 +302,8 @@ const adminResolvers = {
             console.error('Error verifying OTP:', error.message);
             return { success: false, message: 'Failed to verify OTP' };
           }
-        },       
+        },
+        // __________________________________________________________________________       
       
         // Mutation for User Registration Mutation
         register: async (_, { name, email, phone, city, state, country, password }) => {
@@ -333,17 +346,69 @@ const adminResolvers = {
             throw new Error('Failed to register user'); // Use Error instead of a string
           }
         },
+        // __________________________________________________________________________
         
         // Mutation for admin registration(used to add admin via thunderclient)
         registerAdmin: async (_, { email, password }) => {
             const hashedPassword = await bcrypt.hash(password, 10);
             return await Admin.create({ email, password: hashedPassword });
         },
+        // __________________________________________________________________________
 
         // Mutation to add the vechile make, model and year
+        // addVehicle: async (_, { make, model, year }) => {
+        //     return await Vehicle.create({ make, model, year });
+        // },
         addVehicle: async (_, { make, model, year }) => {
-            return await Vehicle.create({ make, model, year });
+          try {
+            // Validate input data
+            const { error } = validateVehicle({ make, model, year });
+            if (error) {
+              const errors = error.details.map(detail => ({
+                field: detail.path[0],
+                message: detail.message
+              }));
+              throw new UserInputError('Validation Error', { errors });
+            }
+    
+            // Check for existing vehicle with same make, model, and year
+            const existingVehicle = await Vehicle.findOne({
+              where: {
+                make: make.trim(),
+                model: model.trim(),
+                year: year
+              }
+            });
+    
+            if (existingVehicle) {
+              throw new UserInputError('Duplicate Vehicle', {
+                errors: [{
+                  field: 'general',
+                  message: `A vehicle with make: ${make}, model: ${model}, and year: ${year} already exists.`
+                }]
+              });
+            }
+    
+            // Create new vehicle
+            const vehicle = await Vehicle.create({
+              make: make.trim(),
+              model: model.trim(),
+              year
+            });
+    
+            return vehicle;
+          } catch (error) {
+            if (error instanceof UserInputError) {
+              throw error;
+            }
+            
+            // Log the error for debugging
+            console.error('Error adding vehicle:', error);
+            
+            throw new ApolloError('Failed to add vehicle', 'INTERNAL_SERVER_ERROR');
+          }
         },
+        // __________________________________________________________________________
 
         // Mutation for making razorpay payment
         createRazorpayOrder: async (_, { input }) => {
@@ -368,6 +433,7 @@ const adminResolvers = {
                 throw new Error('Failed to create Razorpay order');
             }
         },
+        // __________________________________________________________________________
 
         // Mutation to add Booking of the user
         addBooking: async (_, { input }) => {
@@ -428,7 +494,7 @@ const adminResolvers = {
               throw new Error(`Failed to add booking: ${error.message}`);
             }
         },
-        
+        // __________________________________________________________________________
 
         // Mutation to add rentable vehicles by the admin
         addRentableVehicle: async (_, { input, primaryImage, additionalImages }) => {
@@ -503,7 +569,6 @@ const adminResolvers = {
             });
 
             // Index the vehicle in Typesense
-            console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~Indexing vehicle in Typesense...");
             const typesenseDocument = {
               id: vehicle.id.toString(),
               make,
@@ -519,10 +584,10 @@ const adminResolvers = {
               primaryImageUrl,
               additionalImageUrls,
             };
-            console.log("Typesense document:", typesenseDocument);
+            // console.log("Typesense document:", typesenseDocument);
 
             await indexVehicle(typesenseDocument);
-            console.log("Vehicle indexed in Typesense successfully");
+            // console.log("Vehicle indexed in Typesense successfully");
 
         
             return vehicle;
@@ -531,8 +596,9 @@ const adminResolvers = {
             throw new Error(`Failed to add rentable vehicle: ${error.message}`);
           }
         },
+        // __________________________________________________________________________
         
-        // Mutation to delete the vehicles that the users can rent
+        // Mutation to delete the vehicles that the users can rent(soft delete is implemented so that even after deletion the user can see the booked car in bookings)
         deleteRentableVehicle: async (_, { id }) => {
             try {
                 const result = await RentableVehicle.destroy({
@@ -560,132 +626,133 @@ const adminResolvers = {
                 return { success: false, message: "Failed to delete vehicle." };
             }
         },
+        // __________________________________________________________________________
 
         // Mutation to update the rentable vehicles
-      updateRentableVehicle: async (
-        _,
-        { id, make, model, year, price, quantity, availability, transmission, fuel_type, seats, description, primaryImage, additionalImages },
-       
-      ) => {
-        try {
-          // Find the vehicle by ID
-          const vehicle = await RentableVehicle.findByPk(id);
-          if (!vehicle) {
-            return {
-              success: false,
-              message: 'Vehicle not found.',
-              vehicle: null,
-            };
-          }
-  
-          // Prepare the input object for updates
-          const input = {
-            make: make !== undefined ? make : vehicle.make,
-            model: model !== undefined ? model : vehicle.model,
-            year: year !== undefined ? year : vehicle.year,
-            price: price !== undefined ? price : vehicle.price,
-            quantity: quantity !== undefined ? quantity : vehicle.quantity,
-            availability: availability !== undefined ? availability : vehicle.availability,
-            transmission: transmission !== undefined ? transmission : vehicle.transmission,
-            fuel_type: fuel_type !== undefined ? fuel_type : vehicle.fuel_type,
-            seats: seats !== undefined ? seats : vehicle.seats,
-            description: description !== undefined ? description : vehicle.description,
-            primaryImageUrl: vehicle.primaryImageUrl,
-            additionalImageUrls: vehicle.additionalImageUrls
-          };
- 
-          const bucketName = "carrental";
-          const bucketExists = await minioClient.bucketExists(bucketName);
-          console.log("!_!_!_!_!_!_!_!_!_!_!_!_!_!_!",bucketExists)
-          if (!bucketExists) {
-            await minioClient.makeBucket(bucketName);
-          }
-  
-          // Function to upload files to MinIO
-          const uploadFile = async (file) => {
-            try {
-                console.log('MinIO Client:', minioClient); // Log the client
-                const { createReadStream, filename } = await file;
-                const objectName = `${Date.now()}-${filename}`;
-                const stream = createReadStream();
-                await minioClient.putObject(bucketName, objectName, stream);
-                return await minioClient.presignedGetObject(bucketName, objectName);
-            } catch (error) {
-                throw new Error(`Error uploading file: ${error.message}`);
-            }
-        };
+        updateRentableVehicle: async (
+          _,
+          { id, make, model, year, price, quantity, availability, transmission, fuel_type, seats, description, primaryImage, additionalImages },
         
+        ) => {
+          try {
+            // Find the vehicle by ID
+            const vehicle = await RentableVehicle.findByPk(id);
+            if (!vehicle) {
+              return {
+                success: false,
+                message: 'Vehicle not found.',
+                vehicle: null,
+              };
+            }
+    
+            // Prepare the input object for updates
+            const input = {
+              make: make !== undefined ? make : vehicle.make,
+              model: model !== undefined ? model : vehicle.model,
+              year: year !== undefined ? year : vehicle.year,
+              price: price !== undefined ? price : vehicle.price,
+              quantity: quantity !== undefined ? quantity : vehicle.quantity,
+              availability: availability !== undefined ? availability : vehicle.availability,
+              transmission: transmission !== undefined ? transmission : vehicle.transmission,
+              fuel_type: fuel_type !== undefined ? fuel_type : vehicle.fuel_type,
+              seats: seats !== undefined ? seats : vehicle.seats,
+              description: description !== undefined ? description : vehicle.description,
+              primaryImageUrl: vehicle.primaryImageUrl,
+              additionalImageUrls: vehicle.additionalImageUrls
+            };
   
-          // Upload primary image if provided
-          if (primaryImage) {
-            input.primaryImageUrl = await uploadFile(primaryImage);
-          }
-  
-          // Upload additional images if provided
-          if (additionalImages && additionalImages.length > 0) {
-            input.additionalImageUrls = await Promise.all(
-              additionalImages.map((image) => uploadFile(image))
-            );
-          }
-  
-          // Update vehicle details
-          await vehicle.update(input);
-  
-          // Fetch the updated vehicle data
-          const updatedVehicle = await RentableVehicle.findByPk(id);
-          if (!updatedVehicle) {
+            const bucketName = "carrental";
+            const bucketExists = await minioClient.bucketExists(bucketName);
+            console.log("!_!_!_!_!_!_!_!_!_!_!_!_!_!_!",bucketExists)
+            if (!bucketExists) {
+              await minioClient.makeBucket(bucketName);
+            }
+    
+            // Function to upload files to MinIO
+            const uploadFile = async (file) => {
+              try {
+                  console.log('MinIO Client:', minioClient); // Log the client
+                  const { createReadStream, filename } = await file;
+                  const objectName = `${Date.now()}-${filename}`;
+                  const stream = createReadStream();
+                  await minioClient.putObject(bucketName, objectName, stream);
+                  return await minioClient.presignedGetObject(bucketName, objectName);
+              } catch (error) {
+                  throw new Error(`Error uploading file: ${error.message}`);
+              }
+          };
+          
+    
+            // Upload primary image if provided
+            if (primaryImage) {
+              input.primaryImageUrl = await uploadFile(primaryImage);
+            }
+    
+            // Upload additional images if provided
+            if (additionalImages && additionalImages.length > 0) {
+              input.additionalImageUrls = await Promise.all(
+                additionalImages.map((image) => uploadFile(image))
+              );
+            }
+    
+            // Update vehicle details
+            await vehicle.update(input);
+    
+            // Fetch the updated vehicle data
+            const updatedVehicle = await RentableVehicle.findByPk(id);
+            if (!updatedVehicle) {
+              return {
+                success: false,
+                message: 'Failed to retrieve updated vehicle.',
+                vehicle: null,
+              };
+            }
+    
+            // Index the updated vehicle in Typesense
+            const typesenseDocument = {
+              id: String(id), // Explicitly convert id to a string
+              make: make !== undefined ? make : vehicle.make,
+              model: model !== undefined ? model : vehicle.model,
+              year: year !== undefined ? year : vehicle.year,
+              price: price !== undefined ? price : vehicle.price,
+              quantity: quantity !== undefined ? quantity : vehicle.quantity,
+              availability: availability !== undefined ? availability : vehicle.availability,
+              transmission: transmission !== undefined ? transmission : vehicle.transmission,
+              fuel_type: fuel_type !== undefined ? fuel_type : vehicle.fuel_type,
+              seats: seats !== undefined ? seats : vehicle.seats,
+              description: description !== undefined ? description : vehicle.description,
+              primaryImageUrl: vehicle.primaryImageUrl,
+              additionalImageUrls: vehicle.additionalImageUrls
+            };
+          
+            console.log("Document to be indexed~~~~~~~~~~~~>:", typesenseDocument);
+            console.log("ID Type Check:", typeof typesenseDocument.id); // Should log 'string'
+
+            try {
+              await indexVehicle(typesenseDocument);
+            } catch (error) {
+              console.error("Error during indexing:", error);
+            }
+
+          
+    
+            // Return the updated vehicle with success message
+            return {
+              success: true,
+              message: "Vehicle updated successfully.",
+              vehicle: updatedVehicle.get({ plain: true }),
+            };
+          } catch (error) {
+            console.error('Error updating vehicle:', error);
             return {
               success: false,
-              message: 'Failed to retrieve updated vehicle.',
+              message: `Failed to update vehicle: ${error.message}`,
               vehicle: null,
             };
           }
-  
-          // Index the updated vehicle in Typesense
-          const typesenseDocument = {
-            id: String(id), // Explicitly convert id to a string
-            make: make !== undefined ? make : vehicle.make,
-            model: model !== undefined ? model : vehicle.model,
-            year: year !== undefined ? year : vehicle.year,
-            price: price !== undefined ? price : vehicle.price,
-            quantity: quantity !== undefined ? quantity : vehicle.quantity,
-            availability: availability !== undefined ? availability : vehicle.availability,
-            transmission: transmission !== undefined ? transmission : vehicle.transmission,
-            fuel_type: fuel_type !== undefined ? fuel_type : vehicle.fuel_type,
-            seats: seats !== undefined ? seats : vehicle.seats,
-            description: description !== undefined ? description : vehicle.description,
-            primaryImageUrl: vehicle.primaryImageUrl,
-            additionalImageUrls: vehicle.additionalImageUrls
-          };
-         
-          console.log("Document to be indexed~~~~~~~~~~~~>:", typesenseDocument);
-          console.log("ID Type Check:", typeof typesenseDocument.id); // Should log 'string'
-
-          try {
-            await indexVehicle(typesenseDocument);
-          } catch (error) {
-            console.error("Error during indexing:", error);
-          }
-
-         
-  
-          // Return the updated vehicle with success message
-          return {
-            success: true,
-            message: "Vehicle updated successfully.",
-            vehicle: updatedVehicle.get({ plain: true }),
-          };
-        } catch (error) {
-          console.error('Error updating vehicle:', error);
-          return {
-            success: false,
-            message: `Failed to update vehicle: ${error.message}`,
-            vehicle: null,
-          };
-        }
-      },
+        },
+        // __________________________________________________________________________
       
-
         // Mutation for admin login
         loginAdmin: async (_, { email, password }) => {
 
@@ -711,9 +778,6 @@ const adminResolvers = {
             // Step 5: Return the token and admin data
             return { token, user: admin }; // Return both token and user information
         },
-
-        
-
     },
 };
 

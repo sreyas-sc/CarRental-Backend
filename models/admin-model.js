@@ -1,6 +1,5 @@
 // This directory contains your Sequelize models, which represent tables in your PostgreSQL database.
-
-// admin-model.js: Defines the schema (columns, types, and constraints) for the admin table in your database.
+// admin-model.js: Defines the schema (columns, types, and constraints) for the Admins table in your database.
 
 
 import { DataTypes } from 'sequelize';

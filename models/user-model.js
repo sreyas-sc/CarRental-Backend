@@ -1,9 +1,6 @@
 // This directory contains your Sequelize models, which represent tables in your PostgreSQL database.
+// user-model.js: Defines the schema for the user table
 
-// user-model.js: Defines the schema for the user table, which may include fields like name, email, phone, password, etc.
-// This directory contains your Sequelize models, which represent tables in your PostgreSQL database.
-
-// user-model.js: Defines the schema for the user table, which includes fields like name, email, phone, password, etc.
 import { DataTypes } from 'sequelize';
 import sequelize from './db.js'; // Import your sequelize instance
 

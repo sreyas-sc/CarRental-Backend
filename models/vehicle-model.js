@@ -1,3 +1,6 @@
+// This directory contains your Sequelize models, which represent tables in your PostgreSQL database.
+// vehicle-model.js: Defines the schema for the Vehicles table
+
 import { DataTypes } from 'sequelize';
 import  sequelize  from './db.js';
 

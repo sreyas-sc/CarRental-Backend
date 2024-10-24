@@ -12,6 +12,7 @@ import { ApolloError } from 'apollo-server-express'; // Import ApolloError
 
 const userResolvers = {
 
+    // ******************Queries****************************
     
     Query: {
 
@@ -20,6 +21,8 @@ const userResolvers = {
             return await User.findAll();
         },
     },
+
+    // **********************Mutations***********************
 
     Mutation: {
 
@@ -44,32 +47,9 @@ const userResolvers = {
                 state 
             });
         },
+        // __________________________________________________________________________
 
         // Mutation for user login
-        // login: async (_, { email, password }) => {
-        //     // Validate Login Input using user entered password and hashed password
-        //     const { error } = validateLogin({ email, password });
-        //     if (error) {
-        //         throw new Error(error.details[0].message);
-        //     }
-        //     const user = await User.findOne({ where: { email } });
-
-            
-        //     if (!user) {
-        //         throw new Error('User not found');  // Throw an error instead of returning null
-        //     }
-
-        //     const isMatch = await bcrypt.compare(password, user.password);
-
-        //     if (!isMatch) {
-        //         throw new Error('Password does not match');  // Throw an error instead of returning null
-        //     }
-        //     // Create token for loggedin user
-        //     const token = createToken(user.id);
-        //     // Return both token and user information
-        //     return { token, user };  
-        // },
-
         login: async (_, { email, password }) => {
             try {
                 // Validate Login Input
@@ -129,9 +109,8 @@ const userResolvers = {
                 }
             }
         },
+        // __________________________________________________________________________
         
-
-
         // Mutation to update user profile detsils
         updateUser: async (_, { id, input }) => {
 
@@ -149,7 +128,7 @@ const userResolvers = {
             await user.update(input);
             return user;
         },
-
+        // __________________________________________________________________________
 
         // Mutation to update user password
         changePassword: async (_, { userId, currentPassword, newPassword }) => {
@@ -180,9 +159,9 @@ const userResolvers = {
                 message: 'Password updated successfully',
             };
         },
+        // __________________________________________________________________________
 
         // New Mutation to upload user image
-        
         uploadImage: async (_, { userId, file }) => {
             try {
                 // Extract the file data
@@ -227,9 +206,8 @@ const userResolvers = {
                 };
             }
         }
+        // __________________________________________________________________________
         
-
-
     },
 };
 

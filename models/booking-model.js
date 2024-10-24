@@ -1,3 +1,6 @@
+// This directory contains your Sequelize models, which represent tables in your PostgreSQL database.
+// booking-model.js: Defines the schema for the Bookings table
+
 import { DataTypes } from 'sequelize';
 import sequelize from './db.js'; // Ensure you have your sequelize instance imported
 import Vehicle from './vehicle-model.js';

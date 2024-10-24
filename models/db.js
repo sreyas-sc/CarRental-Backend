@@ -1,7 +1,5 @@
 // This directory contains your Sequelize models, which represent tables in your PostgreSQL database.
-
 // db.js: Initializes and configures Sequelize (the ORM used to interact with the PostgreSQL database) and connects to the database using credentials from config.js.
-// db.js
 import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
 import config from '../config/config.js';
