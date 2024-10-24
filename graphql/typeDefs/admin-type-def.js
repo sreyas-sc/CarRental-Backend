@@ -118,6 +118,8 @@ const adminTypeDefs = gql`
         quantity: Int
         availability: Int
         description: String
+        transmission: String!
+        fuel_type: String!
     }
 
     input BookingInput {
@@ -208,6 +210,9 @@ const adminTypeDefs = gql`
             price: Float,
             description: String,
             quantity: Int,
+            transmission: String,
+            fuel_type: String,
+            seats: Int,
             availability: Int,
             primaryImage: Upload,
             additionalImages: [Upload]
