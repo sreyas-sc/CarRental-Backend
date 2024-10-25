@@ -18,6 +18,7 @@ import twilio from  'twilio';  //for  sending otp via twilio
 import { validateVehicle } from '../../requests/vehicleValidation.js';
 // import { UserInputError, ApolloError } from 'apollo-server-micro';
 import { validateAdminLogin, validateRentableVehicle } from '../../requests/admin.js'; //Joi validations
+import { validateVehicleUpdate } from '../../requests/updateVehicleValidation.js'
 import { ApolloError, UserInputError } from 'apollo-server'; //for showing apollo errors
 
 import { indexVehicle } from '../../config/typesenseClient.js';
@@ -69,7 +70,7 @@ const adminResolvers = {
 
     Upload: GraphQLUpload, //for file upload in graphql
 
-    // *****************Queries***********************
+    // *****************Queries**a*********************
     Query: {
 
         // Query to get all Admins
@@ -180,7 +181,7 @@ const adminResolvers = {
             }).map(hit => hit.document);
         
             // Log available cars
-            console.log("Available Cars:", availableCars);
+            // console.log("Available Cars:", availableCars);
         
             // Step 6: Return the list of available cars
             return availableCars;
@@ -258,107 +259,9 @@ const adminResolvers = {
     // ***************************Mutations********************
     Mutation: {
 
-        // Mutation to send OTP on User registration using Twilio
-        sendOTP: async () => {
-          try {
-            const serviceSid = process.env.TWILIO_SERVICE_SID;
-            if (!serviceSid) {
-              throw new Error("Twilio Service SID is not defined.");
-            }
-        
-            // Static phone number in international format
-            const phone = '+918111904512';  // Replace with the user's phone number(twilio free plan only allows one number hence the static number)
-
-            // Send the OTP via Twilio
-            await client.verify.v2.services(serviceSid)
-              .verifications
-              .create({ to: phone, channel: 'sms' });
-        
-            return { success: true, message: 'OTP sent successfully' };
-          } catch (error) {
-            console.error('Error sending OTP:', error.message);
-            return { success: false, message: 'Failed to send OTP' };
-          }
-        },
-        // __________________________________________________________________________
-
-        // Mutation for OTP Verification with Twilio
-        verifyOTP: async (_, { otp }) => {
-          try {
-            const phone = '+918111904512';  // Static phone number
-            const serviceSid = process.env.TWILIO_SERVICE_SID;
-        
-            // Verify the OTP via Twilio
-            const verification = await client.verify.v2.services(serviceSid)
-              .verificationChecks
-              .create({ to: phone, code: otp });
-        
-            if (verification.status === 'approved') {
-              return { success: true, message: 'OTP verified successfully' };
-            } else {
-              return { success: false, message: 'Invalid OTP' };
-            }
-          } catch (error) {
-            console.error('Error verifying OTP:', error.message);
-            return { success: false, message: 'Failed to verify OTP' };
-          }
-        },
-        // __________________________________________________________________________       
-      
-        // Mutation for User Registration Mutation
-        register: async (_, { name, email, phone, city, state, country, password }) => {
-          try {
-            console.log(name, email, phone, city, state, country, password);
-            // Check if user already exists
-            const existingUser = await User.findOne({ where: { email } });
-            if (existingUser) {
-              throw new Error('User already exists with this email'); // Use Error here
-            }
-        
-            const hashedPassword = await bcrypt.hash(password, 10);
-            const user = await User.create({ 
-              name, 
-              email, 
-              phone, 
-              city, 
-              state, 
-              country, 
-              password: hashedPassword 
-            });
-            
-        
-            const token = createToken(user.id);
-            // Return an object with necessary fields
-            return {
-              token,
-              user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                city: user.city,
-                state: user.state,
-                country: user.country,
-              },
-            };
-          } catch (error) {
-            console.error('Error registering user:', error);
-            throw new Error('Failed to register user'); // Use Error instead of a string
-          }
-        },
-        // __________________________________________________________________________
-        
-        // Mutation for admin registration(used to add admin via thunderclient)
-        registerAdmin: async (_, { email, password }) => {
-            const hashedPassword = await bcrypt.hash(password, 10);
-            return await Admin.create({ email, password: hashedPassword });
-        },
-        // __________________________________________________________________________
+       
 
         // Mutation to add the vechile make, model and year
-        // addVehicle: async (_, { make, model, year }) => {
-        //     return await Vehicle.create({ make, model, year });
-        // },
         addVehicle: async (_, { make, model, year }) => {
           try {
             // Validate input data
@@ -437,7 +340,7 @@ const adminResolvers = {
 
         // Mutation to add Booking of the user
         addBooking: async (_, { input }) => {
-            console.log("Received booking input:", JSON.stringify(input, null, 2));
+            // console.log("Received booking input:", JSON.stringify(input, null, 2));
             try {
               const { 
                 vehicleId, 
@@ -486,7 +389,7 @@ const adminResolvers = {
                 orderId: razorpayOrderId
               });
       
-              console.log("Booking created:", booking);
+              // console.log("Booking created:", booking);
               
               return booking;
             } catch (error) {
@@ -629,11 +532,11 @@ const adminResolvers = {
         // __________________________________________________________________________
 
         // Mutation to update the rentable vehicles
-        updateRentableVehicle: async (
-          _,
-          { id, make, model, year, price, quantity, availability, transmission, fuel_type, seats, description, primaryImage, additionalImages },
-        
-        ) => {
+        updateRentableVehicle: async ( _, { id, make, model, year, price, quantity, availability, transmission, fuel_type, seats, description, primaryImage, additionalImages },) => {
+          
+          // Validate the input using Joi
+          
+
           try {
             // Find the vehicle by ID
             const vehicle = await RentableVehicle.findByPk(id);
@@ -660,10 +563,14 @@ const adminResolvers = {
               primaryImageUrl: vehicle.primaryImageUrl,
               additionalImageUrls: vehicle.additionalImageUrls
             };
-  
+
+            const { error } = validateVehicleUpdate(input);
+          if (error) {
+            throw new Error(error.details[0].message); // Throw error with the first validation message
+          }
+
             const bucketName = "carrental";
             const bucketExists = await minioClient.bucketExists(bucketName);
-            console.log("!_!_!_!_!_!_!_!_!_!_!_!_!_!_!",bucketExists)
             if (!bucketExists) {
               await minioClient.makeBucket(bucketName);
             }
@@ -725,9 +632,6 @@ const adminResolvers = {
               additionalImageUrls: vehicle.additionalImageUrls
             };
           
-            console.log("Document to be indexed~~~~~~~~~~~~>:", typesenseDocument);
-            console.log("ID Type Check:", typeof typesenseDocument.id); // Should log 'string'
-
             try {
               await indexVehicle(typesenseDocument);
             } catch (error) {

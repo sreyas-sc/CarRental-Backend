@@ -21,9 +21,9 @@ const messages = {
     'string.empty': 'Email is required',
   },
   password: {
-    'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-    'string.min': 'Password must be at least {#limit} characters long',
-    'string.max': 'Password cannot exceed {#limit} characters',
+    // 'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+    // 'string.min': 'Password must be at least {#limit} characters long',
+    // 'string.max': 'Password cannot exceed {#limit} characters',
     'string.empty': 'Password is required',
   },
   phone: {
@@ -58,14 +58,14 @@ export const validateRegister = (data) => {
       .messages(messages.email),
 
     password: Joi.string()
-      .pattern(patterns.password)
-      .min(8)
+      // .pattern(patterns.password)
+      .min(6)
       .max(100)
       .required()
       .messages(messages.password),
 
     phone: Joi.string()
-      .pattern(patterns.phone)
+      // .pattern(patterns.phone)
       .required()
       .messages(messages.phone),
 

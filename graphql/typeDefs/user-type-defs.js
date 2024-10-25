@@ -17,7 +17,10 @@ const userTypeDefs = gql`
         imageUrl: String
     }
 
-    
+    type RegisterResponse {
+        token: String!
+        user: User!
+    }
     
     type UploadResult {
         success: Boolean!
@@ -71,7 +74,7 @@ const userTypeDefs = gql`
     }
 
     type Mutation {
-        register(name: String!, email: String!, password: String!, phone: String, city: String, country: String, state: String): User!
+        register(name: String!, email: String!, password: String!, phone: String!, city: String!, country: String!, state: String!): RegisterResponse!
         
         login(email: String!, password: String!): LoginResponse!  
 

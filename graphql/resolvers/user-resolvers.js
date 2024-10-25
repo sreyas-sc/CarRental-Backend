@@ -8,7 +8,17 @@ import minioClient from '../../config/minioClient.js';
 import { GraphQLUpload } from 'graphql-upload';
 import { validateRegister, validateLogin, validateUpdateUser, validateChangePassword } from '../../requests/user.js';
 import { ApolloError } from 'apollo-server-express'; // Import ApolloError
+import dotenv from 'dotenv';
+import crypto from 'crypto';
+import twilio from  'twilio'
 
+// for configuration of the environment variables
+dotenv.config();
+
+// Twilio initialization
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+// In-memory storage for OTPs
+const otpStorage = new Map();
 
 const userResolvers = {
 
@@ -26,27 +36,112 @@ const userResolvers = {
 
     Mutation: {
 
-        // Mutation for user registration
-        register: async (_, { name, email, password, phone, city, country, state }) => {
-            console.log("Register resolver hit"); // Debugging log
 
-            // Validation using Joi
+        // Mutation to send OTP on User registration using Twilio
+        sendOTP: async () => {
+            try {
+              const serviceSid = process.env.TWILIO_SERVICE_SID;
+              if (!serviceSid) {
+                throw new Error("Twilio Service SID is not defined.");
+              }
+          
+              // Static phone number in international format
+              const phone = '+918111904512';  // Replace with the user's phone number(twilio free plan only allows one number hence the static number)
+  
+              // Send the OTP via Twilio
+              await client.verify.v2.services(serviceSid)
+                .verifications
+                .create({ to: phone, channel: 'sms' });
+          
+              return { success: true, message: 'OTP sent successfully' };
+            } catch (error) {
+              console.error('Error sending OTP:', error.message);
+              return { success: false, message: 'Failed to send OTP' };
+            }
+        },
+        // __________________________________________________________________________       
+
+        // Mutation for OTP Verification with Twilio
+        verifyOTP: async (_, { otp }) => {
+        try {
+            const phone = '+918111904512';  // Static phone number
+            const serviceSid = process.env.TWILIO_SERVICE_SID;
+        
+            // Verify the OTP via Twilio
+            const verification = await client.verify.v2.services(serviceSid)
+            .verificationChecks
+            .create({ to: phone, code: otp });
+        
+            if (verification.status === 'approved') {
+            return { success: true, message: 'OTP verified successfully' };
+            } else {
+            return { success: false, message: 'Invalid OTP' };
+            }
+        } catch (error) {
+            console.error('Error verifying OTP:', error.message);
+            return { success: false, message: 'Failed to verify OTP' };
+        }
+        },
+        // __________________________________________________________________________       
+        
+        // Mutation for User Registration Mutation
+        register: async (_, { name, email, phone, city, state, country, password }) => {
+        try {
+            console.log("The user creation mutation is HIT!!!!")
+
             const { error } = validateRegister({ name, email, password, phone, city, country, state });
             if (error) {
                 throw new Error(error.details[0].message);
             }
+            // console.log(name, email, phone, city, state, country, password);
+            // Check if user already exists
+            const existingUser = await User.findOne({ where: { email } });
+            if (existingUser) {
+            throw new Error('User already exists with this email'); // Use Error here
+            }
 
+            // Hash password
             const hashedPassword = await bcrypt.hash(password, 10);
-            return await User.create({ 
-                name, 
-                email, 
-                password: hashedPassword,
-                phone, 
-                city, 
-                country, 
-                state 
+
+            // Create user
+            const user = await User.create({ 
+            name, 
+            email, 
+            phone, 
+            city, 
+            state, 
+            country, 
+            password: hashedPassword 
             });
+            
+            // Generate token 
+            const token = createToken(user.id);
+            // Return an object with necessary fields
+            return {
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                city: user.city,
+                state: user.state,
+                country: user.country,
+            },
+            };
+        } catch (error) {
+            console.error('Error registering user:', error);
+            throw new Error('Failed to register user'); // Use Error instead of a string
+        }
         },
+        // __________________________________________________________________________
+          
+        // Mutation for admin registration(used to add admin via thunderclient)
+        registerAdmin: async (_, { email, password }) => {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            return await Admin.create({ email, password: hashedPassword });
+        },
+    
         // __________________________________________________________________________
 
         // Mutation for user login
