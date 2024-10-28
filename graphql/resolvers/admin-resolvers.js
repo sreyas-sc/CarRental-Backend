@@ -314,6 +314,59 @@ const adminResolvers = {
         // __________________________________________________________________________
 
         // Mutation for making razorpay payment
+
+      //   checkVehicleAvailability :async (vehicleId, startDate, endDate) => {
+      //     try {
+      //         // Find overlapping bookings
+      //         const overlappingBookings = await Booking.findAll({
+      //             where: {
+      //                 vehicleId,
+      //                 [Op.or]: [
+      //                     {
+      //                         startDate: {
+      //                             [Op.lte]: endDate,
+      //                         },
+      //                         endDate: {
+      //                             [Op.gte]: startDate,
+      //                         },
+      //                     },
+      //                     {
+      //                         startDate: {
+      //                             [Op.gte]: startDate,
+      //                         },
+      //                         endDate: {
+      //                             [Op.lte]: endDate,
+      //                         },
+      //                     },
+      //                 ],
+      //             },
+      //         });
+      
+      //         // Get vehicle details including quantity
+      //         const vehicle = await typesenseClient
+      //             .collections('rentable_vehicles')
+      //             .documents(vehicleId)
+      //             .retrieve();
+      
+      //         // Check if vehicle exists
+      //         if (!vehicle) {
+      //             throw new Error('Vehicle not found');
+      //         }
+      
+      //         // Compare booked count with vehicle quantity
+      //         const bookedCount = overlappingBookings.length;
+      //         return {
+      //             isAvailable: vehicle.quantity > bookedCount,
+      //             currentBookings: bookedCount,
+      //             totalQuantity: vehicle.quantity
+      //         };
+      //     } catch (error) {
+      //         console.error('Error checking vehicle availability:', error);
+      //         throw new Error('Failed to check vehicle availability');
+      //     }
+      // },
+      
+        
         createRazorpayOrder: async (_, { input }) => {
             const { amount, currency } = input;
 

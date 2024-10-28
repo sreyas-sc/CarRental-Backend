@@ -57,6 +57,12 @@ const userTypeDefs = gql`
         message: String
     }
 
+    type ImageUploadResponse {
+    success: Boolean!
+    message: String!
+    fileUrl: String
+    }
+
     type ChangePasswordResponse {
         success: Boolean!
         message: String!
@@ -71,6 +77,7 @@ const userTypeDefs = gql`
     type Query {
         getAllUsers: [User!]!
         login(email: String!, password: String!): LoginResponse!  # Updated return type
+        getUserImage(userId: ID!): String
     }
 
     type Mutation {
@@ -85,8 +92,10 @@ const userTypeDefs = gql`
         updateUser(id: ID!, input: UpdateUserInput!): User!
 
         changePassword(userId: ID!, currentPassword: String!, newPassword: String!): ChangePasswordResponse!
+        
+        uploadImage(userId: ID!, file: Upload!): ImageUploadResponse!
 
-        uploadImage(file: Upload!, userId: ID!): UploadResult!    }
+        }
 `;
 
 export default userTypeDefs; 

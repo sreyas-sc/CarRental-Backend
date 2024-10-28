@@ -4,13 +4,15 @@
 import bcrypt from 'bcrypt'; // Import bcrypt for hashing passwords
 import User from '../../models/user-model.js';
 import { createToken } from '../../utils/createToken.js'; 
-import minioClient from '../../config/minioClient.js';
+import minioClient, { getPresignedUrl }  from '../../config/minioClient.js';
 import { GraphQLUpload } from 'graphql-upload';
 import { validateRegister, validateLogin, validateUpdateUser, validateChangePassword } from '../../requests/user.js';
 import { ApolloError } from 'apollo-server-express'; // Import ApolloError
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import twilio from  'twilio'
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
 
 // for configuration of the environment variables
 dotenv.config();
@@ -30,6 +32,26 @@ const userResolvers = {
         getAllUsers: async () => {
             return await User.findAll();
         },
+
+        getUserImage: async (_, { userId }) => {
+            try {
+              const user = await User.findByPk(userId);
+              if (!user || !user.imageUrl) {
+                return null;
+              }
+              
+              // Generate fresh presigned URL
+              const presignedUrl = await getPresignedUrl(
+                process.env.MINIO_PRIVATE_BUCKET_NAME || 'userprofile',
+                user.imageUrl
+              );
+              
+              return presignedUrl;
+            } catch (error) {
+              console.error('Error getting user image:', error);
+              throw error;
+            }
+          }
     },
 
     // **********************Mutations***********************
@@ -257,47 +279,110 @@ const userResolvers = {
         // __________________________________________________________________________
 
         // New Mutation to upload user image
+        // uploadImage: async (_, { userId, file }) => {
+        //     try {
+        //         // Extract the file data
+        //         const { createReadStream, filename } = await file;
+        
+        //         // Define the destination path in MinIO
+        //         const bucketName = 'carrental'; // Ensure this bucket exists
+        //         const filePath = `user-images/${userId}/${filename}`;
+        
+        //         // Create a stream to upload the file to MinIO
+        //         const stream = createReadStream();
+        
+        //         // Upload the file to MinIO
+        //         await minioClient.putObject(bucketName, filePath, stream, stream.length, {
+        //             'Content-Type': 'image/jpeg', // Set appropriate content type
+        //         });
+        
+        //         // Construct the file URL
+        //         const fileUrl = `http://localhost:${minioClient.port}/${bucketName}/${filePath}`;
+        
+        //         // Find the user and update the image URL in the database
+        //         const user = await User.findByPk(userId);
+        //         if (!user) {
+        //             throw new Error('User not found');
+        //         }
+        
+        //         // Update the user's imageUrl in the database
+        //         user.imageUrl = fileUrl;
+        //         await user.save();
+        
+        //         return {
+        //             success: true,
+        //             message: 'Image uploaded and URL saved successfully',
+        //             fileUrl,
+        //         };
+        //     } catch (error) {
+        //         console.error('Error uploading image:', error);
+        //         return {
+        //             success: false,
+        //             message: 'Failed to upload image',
+        //             fileUrl: null,
+        //         };
+        //     }
+        // }
         uploadImage: async (_, { userId, file }) => {
             try {
-                // Extract the file data
-                const { createReadStream, filename } = await file;
-        
-                // Define the destination path in MinIO
-                const bucketName = 'carrental'; // Ensure this bucket exists
-                const filePath = `user-images/${userId}/${filename}`;
-        
-                // Create a stream to upload the file to MinIO
+                const { createReadStream, filename, mimetype } = await file;
+                const bucketName = process.env.MINIO_PRIVATE_BUCKET_NAME || 'userprofile';
+                
+                // Generate unique filename to prevent collisions
+                const fileExtension = path.extname(filename);
+                const uniqueFilename = `${uuidv4()}${fileExtension}`;
+                const filePath = `user-images/${userId}/${uniqueFilename}`;
+                
+                // Validate file type
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                if (!allowedTypes.includes(mimetype)) {
+                    throw new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.');
+                }
+                
+                // Create bucket if it doesn't exist
+                const bucketExists = await minioClient.bucketExists(bucketName);
+                if (!bucketExists) {
+                    await minioClient.makeBucket(bucketName);
+                    // Set bucket policy to private
+                    await minioClient.setBucketPolicy(bucketName, JSON.stringify({
+                        Version: '2012-10-17',
+                        Statement: [{
+                            Effect: 'Deny',
+                            Principal: '*',
+                            Action: 's3:GetObject',
+                            Resource: `arn:aws:s3:::${bucketName}/*`
+                        }]
+                    }));
+                }
+
+                // Upload file
                 const stream = createReadStream();
-        
-                // Upload the file to MinIO
-                await minioClient.putObject(bucketName, filePath, stream, stream.length, {
-                    'Content-Type': 'image/jpeg', // Set appropriate content type
-                });
-        
-                // Construct the file URL
-                const fileUrl = `http://localhost:${minioClient.port}/${bucketName}/${filePath}`;
-        
-                // Find the user and update the image URL in the database
+                await minioClient.putObject(bucketName, filePath, stream);
+                
+                // Generate presigned URL for immediate use
+                const presignedUrl = await getPresignedUrl(bucketName, filePath);
+                
+                // Update user in database
                 const user = await User.findByPk(userId);
                 if (!user) {
                     throw new Error('User not found');
                 }
-        
-                // Update the user's imageUrl in the database
-                user.imageUrl = fileUrl;
+                
+                // Store the filepath (not the presigned URL) in the database
+                user.imageUrl = filePath;
                 await user.save();
-        
+                
                 return {
                     success: true,
-                    message: 'Image uploaded and URL saved successfully',
-                    fileUrl,
+                    message: 'Image uploaded successfully',
+                    fileUrl: presignedUrl
                 };
             } catch (error) {
                 console.error('Error uploading image:', error);
                 return {
                     success: false,
-                    message: 'Failed to upload image',
-                    fileUrl: null,
+                    message: error.message || 'Failed to upload image',
+                    fileUrl: null
                 };
             }
         }

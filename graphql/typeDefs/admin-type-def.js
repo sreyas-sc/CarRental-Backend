@@ -70,6 +70,8 @@ const adminTypeDefs = gql`
         additionalImageUrls: [String]
     }
 
+
+
     type Booking {
         id: ID!
         vehicleId: Int!
@@ -94,6 +96,12 @@ const adminTypeDefs = gql`
         id: ID!
         amount: Int!
         currency: String!
+    }
+
+    type VehicleAvailability {
+        isAvailable: Boolean!
+        currentBookings: Int!
+        totalQuantity: Int!
     }
 
     input vehicleInput {
@@ -225,6 +233,12 @@ const adminTypeDefs = gql`
         createRazorpayOrder(input: CreateRazorpayOrderInput!): RazorpayOrderResponse!
 
         updateUser(id: ID!, input: UpdateUserInput!): User!
+
+        checkVehicleAvailability(
+            vehicleId: ID!
+            startDate: String!
+            endDate: String!
+        ): VehicleAvailability
     }
 `;
 
