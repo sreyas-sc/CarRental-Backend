@@ -9,13 +9,10 @@ const adminTypeDefs = gql`
         password: String!
     }
     
-
     type AdminLoginResponse {
         token: String!
         user: Admin
     }
-
-    
 
     type Vehicle {
         id: ID!
@@ -24,6 +21,11 @@ const adminTypeDefs = gql`
         year: String!
         createdAt: String!
         updatedAt: String!
+    }
+
+    type Make{
+        id: ID!
+        make: String!
     }
 
     type RentableVehicle {
@@ -183,7 +185,9 @@ const adminTypeDefs = gql`
         getAllAdmins: [Admin]
         getAllVehicles: [Vehicle]
         loginAdmin(email: String!, password: String!): AdminLoginResponse!
+        getAllMakesQuery:[Make]
         getAllMakes: [String!]
+        getAllMakesQuery: [Make]
         getModelsByMake(make: String!): [ModelYear!]
         getVehicleByMakeAndModel(make: String!, model: String!): Vehicle
         getAllCars: [Vehicle!]!
@@ -203,6 +207,8 @@ const adminTypeDefs = gql`
         loginAdmin(email: String!, password: String!): AdminLoginResponse!
         
         addVehicle(make: String!, model: String!, year: String!): Vehicle!
+
+        addManufacturer(make: String!): Make!
         
         addRentableVehicle(
             input: vehicleInput!,

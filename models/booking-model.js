@@ -7,6 +7,7 @@ import Vehicle from './vehicle-model.js';
 import User from './user-model.js';
 import RentableVehicle from './rentable-vehicle-model.js';
 
+
 const Booking = sequelize.define('Booking', {
     id: {
         type: DataTypes.INTEGER,

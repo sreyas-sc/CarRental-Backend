@@ -54,6 +54,8 @@ const razorpay = new Razorpay({
 
 // Workaround to get __dirname in ESM
 import { fileURLToPath } from 'url';
+import Make from '../../models/make-model.js';
+import { validateMake } from '../../requests/validateMake.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -89,11 +91,20 @@ const adminResolvers = {
 
         // Get all makes( distinct for avoiding duplication)
         getAllMakes: async () => {
-            return await Vehicle.findAll({
-                attributes: [[sequelize.fn('DISTINCT', sequelize.col('make')), 'make']],
-                raw: true,
-            }).then(results => results.map(result => result.make));
-        },
+          return await Vehicle.findAll({
+              attributes: [[sequelize.fn('DISTINCT', sequelize.col('make')), 'make']],
+              raw: true,
+          }).then(results => results.map(result => result.make));
+      },
+
+
+        getAllMakesQuery: async () => {
+          return await Make.findAll({
+              attributes: ['id','make'],
+            
+          });
+      },
+
         // __________________________________________________________________________
 
         // Query to get the model of the  vehicle with the provided make
@@ -313,60 +324,7 @@ const adminResolvers = {
         },
         // __________________________________________________________________________
 
-        // Mutation for making razorpay payment
-
-      //   checkVehicleAvailability :async (vehicleId, startDate, endDate) => {
-      //     try {
-      //         // Find overlapping bookings
-      //         const overlappingBookings = await Booking.findAll({
-      //             where: {
-      //                 vehicleId,
-      //                 [Op.or]: [
-      //                     {
-      //                         startDate: {
-      //                             [Op.lte]: endDate,
-      //                         },
-      //                         endDate: {
-      //                             [Op.gte]: startDate,
-      //                         },
-      //                     },
-      //                     {
-      //                         startDate: {
-      //                             [Op.gte]: startDate,
-      //                         },
-      //                         endDate: {
-      //                             [Op.lte]: endDate,
-      //                         },
-      //                     },
-      //                 ],
-      //             },
-      //         });
-      
-      //         // Get vehicle details including quantity
-      //         const vehicle = await typesenseClient
-      //             .collections('rentable_vehicles')
-      //             .documents(vehicleId)
-      //             .retrieve();
-      
-      //         // Check if vehicle exists
-      //         if (!vehicle) {
-      //             throw new Error('Vehicle not found');
-      //         }
-      
-      //         // Compare booked count with vehicle quantity
-      //         const bookedCount = overlappingBookings.length;
-      //         return {
-      //             isAvailable: vehicle.quantity > bookedCount,
-      //             currentBookings: bookedCount,
-      //             totalQuantity: vehicle.quantity
-      //         };
-      //     } catch (error) {
-      //         console.error('Error checking vehicle availability:', error);
-      //         throw new Error('Failed to check vehicle availability');
-      //     }
-      // },
-      
-        
+        // Mutation for making razorpay payment   
         createRazorpayOrder: async (_, { input }) => {
             const { amount, currency } = input;
 
@@ -735,6 +693,47 @@ const adminResolvers = {
             // Step 5: Return the token and admin data
             return { token, user: admin }; // Return both token and user information
         },
+
+        // Mutation for adding make to the database      
+        addManufacturer: async (_, { make }) => {
+          try{
+            const {error} = validateMake({make});
+            if(error){
+              const errors = error.details.map(detail => ({
+                field: detail.path[0],
+                message: detail.message
+              }));
+              throw new UserInputError('Validation Error', {errors});
+
+            }
+            const existingMake = await Make.findOne({ 
+              where: sequelize.where(
+              sequelize.fn('LOWER', sequelize.col('make')), 
+              sequelize.fn('LOWER', make.trim())
+              ) 
+            });
+            if (existingMake) {
+              throw new UserInputError('Make already exists', {
+              errors: [{
+                field: 'general',
+                message: `${make} already exists`
+              }]
+              });
+            }
+
+            const newMake = await Make.create({ make: make.trim() });
+            return newMake;
+          }catch(error){
+            if(error instanceof UserInputError){
+              throw error;
+            }
+            console.error('Error adding make:', error);
+            throw new ApolloError('Failed to add make', 'INTERNAL_SERVER_ERROR');
+
+          }
+        }
+
+        // __________________________________________________________________________
     },
 };
 
